@@ -109,33 +109,36 @@ function comparar(){
 
     document.getElementById("resultado").innerHTML = `
 
-    <h3>Comparação de Planilhas</h3>
+    <div class="secao-titulo">
+        <h2>Comparação de Planilhas</h2>
+        <p class="secao-desc">
+            Envie a planilha de referência e a de conferência para localizar divergências de valor.
+        </p>
+    </div>
 
+    <div class="upload-grid">
 
-    <label>
-        Planilha Referência
-    </label>
+        <label class="upload-card">
+            <span class="upload-label">Planilha Referência</span>
+            <input
+                type="file"
+                id="arquivoReferencia"
+                accept=".xlsx,.xls">
+        </label>
 
-    <input 
-        type="file" 
-        id="arquivoReferencia"
-        accept=".xlsx,.xls">
+        <label class="upload-card">
+            <span class="upload-label">Planilha Conferência</span>
+            <input
+                type="file"
+                id="arquivoConferencia"
+                accept=".xlsx,.xls">
+        </label>
 
+    </div>
 
-    <label>
-        Planilha Conferência
-    </label>
-
-    <input 
-        type="file" 
-        id="arquivoConferencia"
-        accept=".xlsx,.xls">
-
-
-    <button onclick="iniciarComparacao()">
+    <button class="botao-primario" onclick="iniciarComparacao()">
         Iniciar Comparação
     </button>
-
 
     <div id="resultadoComparacao">
 
@@ -238,11 +241,15 @@ function verificarDadosCarregados(){
     document.getElementById("resultadoComparacao")
     .innerHTML = `
 
-    <h3>Planilhas carregadas com sucesso!</h3>
+    <div class="status-info">
 
-    <button onclick="compararDados()">
-        Executar Comparação
-    </button>
+        <p>✓ Planilhas carregadas com sucesso!</p>
+
+        <button class="botao-primario" onclick="compararDados()">
+            Executar Comparação
+        </button>
+
+    </div>
 
     `;
 
@@ -472,38 +479,33 @@ function mostrarResultado(total, encontrados, divergenciasValor, naoEncontrados)
 
     let html = `
 
-    <h3>Resultado da Conferência</h3>
-
-
-    <div class="resumo">
-
-        <p>
-        Total analisado:
-        <b>${total}</b>
-        </p>
-
-
-        <p>
-        Encontrados:
-        <b>${encontrados.length}</b>
-        </p>
-
-
-        <p>
-        Divergência de valor:
-        <b>${divergenciasValor.length}</b>
-        </p>
-
-
-        <p>
-        Não encontrados:
-        <b>${naoEncontrados.length}</b>
-        </p>
-
-
+    <div class="secao-titulo">
+        <h2>Resultado da Conferência</h2>
     </div>
 
+    <div class="stats-grid">
 
+        <div class="stat-card stat-total">
+            <span class="stat-label">Total analisado</span>
+            <span class="stat-valor">${total}</span>
+        </div>
+
+        <div class="stat-card stat-sucesso">
+            <span class="stat-label">Encontrados</span>
+            <span class="stat-valor">${encontrados.length}</span>
+        </div>
+
+        <div class="stat-card stat-alerta">
+            <span class="stat-label">Divergência de valor</span>
+            <span class="stat-valor">${divergenciasValor.length}</span>
+        </div>
+
+        <div class="stat-card stat-erro">
+            <span class="stat-label">Não encontrados</span>
+            <span class="stat-valor">${naoEncontrados.length}</span>
+        </div>
+
+    </div>
 
     `;
 
@@ -513,6 +515,8 @@ function mostrarResultado(total, encontrados, divergenciasValor, naoEncontrados)
 
 
         html += `
+
+        <div class="tabela-card">
 
         <h3>Divergências de valor</h3>
 
@@ -582,6 +586,8 @@ function mostrarResultado(total, encontrados, divergenciasValor, naoEncontrados)
 
         </table>
 
+        </div>
+
         `;
 
 
@@ -591,16 +597,14 @@ function mostrarResultado(total, encontrados, divergenciasValor, naoEncontrados)
 
     html += `
 
-<br>
-
-<button onclick="exportarExcel()">
+<button class="botao-secundario" onclick="exportarExcel()">
     Exportar Excel
 </button>
 
 `;
 
 document.getElementById("resultadoComparacao")
-.innerHTML = html;0
+.innerHTML = html;
 
 
 }

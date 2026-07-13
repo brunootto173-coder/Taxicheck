@@ -7,35 +7,41 @@
 
     <title>TaxiCheck 4.0</title>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+
     <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
 
-    <div class="container">
+    <!-- LOGIN -->
+    <section id="loginTela" class="tela-login">
 
-        <!-- LOGIN -->
-        <section id="loginTela" class="card">
+        <div class="ticket-card">
+
+            <div class="ticket-listras"></div>
 
             <div class="logo-login">
-    <img src="assets/logo.png" alt="Logo TaxiCheck">
-</div>
+                <img src="assets/logo.png" alt="Logo TaxiCheck">
+            </div>
 
-<h1>TaxiCheck 4.0</h1>
+            <h1>TaxiCheck 4.0</h1>
 
-<p class="subtitulo">
-    Sistema de conferência de corridas
-</p>
+            <p class="subtitulo">
+                Sistema de conferência de corridas
+            </p>
 
-            <input 
-                type="email" 
-                id="usuario" 
+            <input
+                type="email"
+                id="usuario"
                 placeholder="E-mail"
                 autocomplete="username">
 
-            <input 
-                type="password" 
-                id="senha" 
+            <input
+                type="password"
+                id="senha"
                 placeholder="Senha"
                 autocomplete="current-password">
 
@@ -45,56 +51,60 @@
 
             <p id="mensagem"></p>
 
-        </section>
+        </div>
+
+    </section>
 
 
-        <!-- DASHBOARD -->
+    <!-- DASHBOARD -->
+    <section id="dashboard" class="app-shell escondido">
 
-        <section id="dashboard" class="card escondido">
+        <aside class="sidebar">
 
-            <h1>Dashboard</h1>
+            <div class="sidebar-topo">
+                <img src="assets/logo.png" alt="Logo TaxiCheck" class="sidebar-logo">
+                <span class="sidebar-titulo">TaxiCheck<em>4.0</em></span>
+            </div>
 
-            <p>
-                Bem-vindo ao TaxiCheck 4.0
-            </p>
+            <nav class="sidebar-nav">
 
-
-            <div class="menu">
-
-                <button onclick="comparar()">
+                <button class="nav-item ativo" onclick="comparar()">
+                    <span class="nav-icone">▤</span>
                     Comparar Planilhas
                 </button>
 
-
-                <button>
+                <button class="nav-item" title="Em breve">
+                    <span class="nav-icone">◷</span>
                     Histórico
                 </button>
 
-
-                <button>
+                <button class="nav-item" title="Em breve">
+                    <span class="nav-icone">⚙</span>
                     Configurações
                 </button>
 
+            </nav>
 
-                <button onclick="sair()">
-                    Sair
-                </button>
+            <button class="sidebar-sair" onclick="sair()">
+                Sair
+            </button>
 
-            </div>
+        </aside>
 
+        <main class="conteudo">
 
-            <div id="resultado">
+            <header class="conteudo-topo">
+                <div>
+                    <span class="eyebrow">Dashboard</span>
+                    <h1>Bem-vindo ao TaxiCheck 4.0</h1>
+                </div>
+            </header>
 
-    
-    </div>
+            <div id="resultado" class="conteudo-corpo"></div>
 
-</div>
+        </main>
 
-
-        </section>
-
-
-    </div>
+    </section>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
