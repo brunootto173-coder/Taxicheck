@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>TaxiCheck 4.0</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- LOGIN -->
+        <section id="loginTela" class="card">
+
+            <h1>TaxiCheck 4.0</h1>
+            <p>Sistema de conferência de corridas</p>
+
+            <input 
+                type="text" 
+                id="usuario" 
+                placeholder="Usuário">
+
+            <input 
+                type="password" 
+                id="senha" 
+                placeholder="Senha">
+
+            <button onclick="entrar()">
+                Entrar
+            </button>
+
+            <p id="mensagem"></p>
+
+        </section>
+
+
+        <!-- DASHBOARD -->
+
+        <section id="dashboard" class="card escondido">
+
+            <h1>Dashboard</h1>
+
+            <p>
+                Bem-vindo ao TaxiCheck 4.0
+            </p>
+
+
+            <div class="menu">
+
+                <button onclick="comparar()">
+                    Comparar Planilhas
+                </button>
+
+
+                <button>
+                    Histórico
+                </button>
+
+
+                <button>
+                    Configurações
+                </button>
+
+
+                <button onclick="sair()">
+                    Sair
+                </button>
+
+            </div>
+
+
+            <div id="resultado">
+
+    
+    </div>
+
+</div>
+
+
+        </section>
+
+
+    </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script src="js/app.js"></script>
+
+</body>
+
+</html>
