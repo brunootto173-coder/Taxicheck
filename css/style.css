@@ -170,3 +170,26 @@ table {
     overflow-x:auto;
 
 }
+
+/* ========================= */
+/* LOGO DA TELA DE LOGIN */
+/* ========================= */
+
+.logo-login{
+    text-align:center;
+    margin-bottom:15px;
+}
+
+.logo-login img{
+    width:180px;
+    max-width:100%;
+    height:auto;
+}
+
+.subtitulo{
+    text-align:center;
+    color:#666;
+    font-size:15px;
+    margin-top:-10px;
+    margin-bottom:30px;
+}
