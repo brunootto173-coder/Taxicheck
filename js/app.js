@@ -1,28 +1,64 @@
 
 function entrar(){
 
-    let usuario = document.getElementById("usuario").value;
+    let email = document.getElementById("usuario").value.trim();
 
     let senha = document.getElementById("senha").value;
 
+    let mensagem = document.getElementById("mensagem");
 
-    if(usuario === "admin" && senha === "1234") {
+    let botao = document.querySelector("#loginTela button");
+
+    mensagem.innerHTML = "";
+
+    if(!email || !senha){
+
+        mensagem.innerHTML = "Preencha e-mail e senha";
+
+        return;
+
+    }
+
+    botao.disabled = true;
+
+    botao.innerHTML = "Entrando...";
+
+    firebase.auth()
+    .signInWithEmailAndPassword(email, senha)
+    .catch(function(erro){
+
+        mensagem.innerHTML = traduzirErroLogin(erro.code);
+
+    })
+    .finally(function(){
+
+        botao.disabled = false;
+
+        botao.innerHTML = "Entrar";
+
+    });
+
+}
 
 
-        document.getElementById("loginTela")
-        .classList.add("escondido");
 
+function traduzirErroLogin(codigo){
 
-        document.getElementById("dashboard")
-        .classList.remove("escondido");
+    switch(codigo){
 
+        case "auth/invalid-email":
+            return "E-mail inválido";
 
-    } else {
+        case "auth/user-not-found":
+        case "auth/wrong-password":
+        case "auth/invalid-credential":
+            return "Usuário ou senha incorretos";
 
+        case "auth/too-many-requests":
+            return "Muitas tentativas. Tente novamente mais tarde";
 
-        document.getElementById("mensagem")
-        .innerHTML = "Usuário ou senha incorretos";
-
+        default:
+            return "Erro ao entrar. Tente novamente";
 
     }
 
@@ -30,17 +66,41 @@ function entrar(){
 
 
 
-
 function sair(){
 
-    document.getElementById("dashboard")
-    .classList.add("escondido");
-
-
-    document.getElementById("loginTela")
-    .classList.remove("escondido");
+    firebase.auth().signOut();
 
 }
+
+
+
+// Mantém a tela certa conforme o estado do login
+// (inclusive ao recarregar a página)
+
+firebase.auth().onAuthStateChanged(function(usuario){
+
+    if(usuario){
+
+        document.getElementById("loginTela")
+        .classList.add("escondido");
+
+        document.getElementById("dashboard")
+        .classList.remove("escondido");
+
+    } else {
+
+        document.getElementById("dashboard")
+        .classList.add("escondido");
+
+        document.getElementById("loginTela")
+        .classList.remove("escondido");
+
+        document.getElementById("usuario").value = "";
+        document.getElementById("senha").value = "";
+
+    }
+
+});
 
 
 
