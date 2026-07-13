@@ -74,6 +74,21 @@ function sair(){
 
 
 
+function ativarMenu(botao){
+
+    document.querySelectorAll(".nav-item")
+    .forEach(function(item){
+
+        item.classList.remove("ativo");
+
+    });
+
+    botao.classList.add("ativo");
+
+}
+
+
+
 // Mantém a tela certa conforme o estado do login
 // (inclusive ao recarregar a página)
 
@@ -102,6 +117,188 @@ firebase.auth().onAuthStateChanged(function(usuario){
 
 });
 
+
+
+
+function verHistorico(){
+
+    document.getElementById("resultado").innerHTML = `
+
+    <div class="secao-titulo">
+        <h2>Histórico de Conferências</h2>
+        <p class="secao-desc">Últimas comparações realizadas por você.</p>
+    </div>
+
+    <div id="listaHistorico">
+
+        <div class="status-info">
+            <p>Carregando...</p>
+        </div>
+
+    </div>
+
+    `;
+
+    let uid = firebase.auth().currentUser.uid;
+
+    db.collection("historico")
+    .where("uid", "==", uid)
+    .orderBy("dataHora", "desc")
+    .limit(30)
+    .get()
+    .then(function(snapshot){
+
+        if(snapshot.empty){
+
+            document.getElementById("listaHistorico").innerHTML = `
+
+            <div class="status-info">
+                <p>Nenhuma conferência salva ainda.</p>
+            </div>
+
+            `;
+
+            return;
+
+        }
+
+        let html = `
+
+        <div class="tabela-card">
+
+        <table>
+
+        <thead>
+
+        <tr>
+            <th>Data</th>
+            <th>Total</th>
+            <th>Encontrados</th>
+            <th>Divergência</th>
+            <th>Não encontrados</th>
+            <th></th>
+        </tr>
+
+        </thead>
+
+        <tbody>
+
+        `;
+
+        snapshot.forEach(function(doc){
+
+            let d = doc.data();
+
+            let data = d.dataHora
+                ? d.dataHora.toDate().toLocaleString("pt-BR")
+                : "-";
+
+            html += `
+
+            <tr>
+                <td>${data}</td>
+                <td>${d.total}</td>
+                <td>${d.encontrados.length}</td>
+                <td>${d.divergencias.length}</td>
+                <td>${d.naoEncontrados.length}</td>
+                <td>
+                    <button class="botao-secundario" onclick="verDetalheHistorico('${doc.id}')">
+                        Ver
+                    </button>
+                </td>
+            </tr>
+
+            `;
+
+        });
+
+        html += `
+
+        </tbody>
+
+        </table>
+
+        </div>
+
+        `;
+
+        document.getElementById("listaHistorico").innerHTML = html;
+
+    })
+    .catch(function(erro){
+
+        console.error("Erro ao carregar histórico:", erro);
+
+        document.getElementById("listaHistorico").innerHTML = `
+
+        <div class="status-info">
+            <p>Não foi possível carregar o histórico.</p>
+        </div>
+
+        `;
+
+    });
+
+}
+
+
+
+function verDetalheHistorico(id){
+
+    db.collection("historico").doc(id).get()
+    .then(function(doc){
+
+        if(!doc.exists){
+
+            alert("Registro não encontrado");
+
+            return;
+
+        }
+
+        let d = doc.data();
+
+        window.resultadoTaxiCheck = {
+
+            total: d.total,
+
+            encontrados: d.encontrados,
+
+            divergencias: d.divergencias,
+
+            naoEncontrados: d.naoEncontrados
+
+        };
+
+        let data = d.dataHora
+            ? d.dataHora.toDate().toLocaleString("pt-BR")
+            : "";
+
+        document.getElementById("resultado").innerHTML = `
+
+        <div class="secao-titulo">
+            <h2>Detalhe da Conferência</h2>
+            <p class="secao-desc">${data}</p>
+        </div>
+
+        <button class="botao-secundario" onclick="verHistorico()" style="margin-bottom:20px;">
+            Voltar ao histórico
+        </button>
+
+        <div id="resultadoComparacao"></div>
+
+        `;
+
+        mostrarResultado(
+            d.total,
+            d.encontrados,
+            d.divergencias,
+            d.naoEncontrados
+        );
+
+    });
+
+}
 
 
 
@@ -469,12 +666,46 @@ mostrarResultado(
 );
 
 
+salvarHistorico(window.resultadoTaxiCheck);
+
+
+}
+
+
+
+function salvarHistorico(dados){
+
+    let uid = firebase.auth().currentUser.uid;
+
+    db.collection("historico").add({
+
+        uid: uid,
+
+        dataHora: firebase.firestore.FieldValue.serverTimestamp(),
+
+        total: dados.total,
+
+        encontrados: dados.encontrados,
+
+        divergencias: dados.divergencias,
+
+        naoEncontrados: dados.naoEncontrados
+
+    })
+    .catch(function(erro){
+
+        console.error("Erro ao salvar histórico:", erro);
+
+    });
+
 }
 
 
 
 
-function mostrarResultado(total, encontrados, divergenciasValor, naoEncontrados){
+function mostrarResultado(total, encontrados, divergenciasValor, naoEncontrados, destino){
+
+    destino = destino || "resultadoComparacao";
 
 
     let html = `
@@ -603,7 +834,7 @@ function mostrarResultado(total, encontrados, divergenciasValor, naoEncontrados)
 
 `;
 
-document.getElementById("resultadoComparacao")
+document.getElementById(destino)
 .innerHTML = html;
 
 
