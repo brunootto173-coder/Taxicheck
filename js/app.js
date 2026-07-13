@@ -1,4 +1,58 @@
 
+(function aplicarTemaSalvo(){
+
+    let tema = localStorage.getItem("taxicheckTema");
+
+    if(tema === "escuro"){
+
+        document.body.classList.add("tema-escuro");
+
+    }
+
+})();
+
+
+
+function configuracaoPadrao(){
+
+    return {
+
+        tolerancia: 0.25,
+
+        aliasesNumero: ["numero", "nochamado"],
+
+        aliasesValor: ["valor"],
+
+        historicoLimite: 30
+
+    };
+
+}
+
+
+
+function carregarConfiguracoes(uid){
+
+    db.collection("configuracoes").doc(uid).get()
+    .then(function(doc){
+
+        window.configUsuario = doc.exists
+            ? Object.assign(configuracaoPadrao(), doc.data())
+            : configuracaoPadrao();
+
+    })
+    .catch(function(erro){
+
+        console.error("Erro ao carregar configurações:", erro);
+
+        window.configUsuario = configuracaoPadrao();
+
+    });
+
+}
+
+
+
 function entrar(){
 
     let email = document.getElementById("usuario").value.trim();
@@ -96,6 +150,8 @@ firebase.auth().onAuthStateChanged(function(usuario){
 
     if(usuario){
 
+        carregarConfiguracoes(usuario.uid);
+
         document.getElementById("loginTela")
         .classList.add("escondido");
 
@@ -144,7 +200,7 @@ function verHistorico(){
     db.collection("historico")
     .where("uid", "==", uid)
     .orderBy("dataHora", "desc")
-    .limit(30)
+    .limit((window.configUsuario && window.configUsuario.historicoLimite) || 30)
     .get()
     .then(function(snapshot){
 
@@ -295,6 +351,307 @@ function verDetalheHistorico(id){
             d.divergencias,
             d.naoEncontrados
         );
+
+    });
+
+}
+
+
+
+function configuracoes(){
+
+    let usuario = firebase.auth().currentUser;
+    let cfg = window.configUsuario || configuracaoPadrao();
+    let temaAtual = localStorage.getItem("taxicheckTema") || "claro";
+
+    document.getElementById("resultado").innerHTML = `
+
+    <div class="secao-titulo">
+        <h2>Configurações</h2>
+        <p class="secao-desc">Ajustes da sua conta e da comparação de planilhas.</p>
+    </div>
+
+
+    <div class="tabela-card">
+
+        <h3>Conta</h3>
+
+        <p class="secao-desc" style="margin-bottom:16px;">
+            Logado como <b>${usuario.email}</b>
+        </p>
+
+        <label class="upload-label">Nova senha</label>
+        <input class="campo" type="password" id="novaSenha" placeholder="Mínimo 6 caracteres">
+
+        <label class="upload-label">Confirmar nova senha</label>
+        <input class="campo" type="password" id="confirmarSenha" placeholder="Repita a nova senha">
+
+        <button class="botao-primario" onclick="atualizarSenha()">
+            Atualizar senha
+        </button>
+
+        <p id="mensagemSenha" class="secao-desc" style="margin-top:10px;"></p>
+
+    </div>
+
+
+    <div class="tabela-card">
+
+        <h3>Comparação de planilhas</h3>
+
+        <label class="upload-label">Tolerância de divergência (R$)</label>
+        <input class="campo" type="number" id="cfgTolerancia" step="0.01" min="0" value="${cfg.tolerancia}">
+
+        <label class="upload-label">Nomes de coluna aceitos para "Número / Chamado"</label>
+        <input class="campo" type="text" id="cfgAliasNumero" value="${cfg.aliasesNumero.join(', ')}">
+
+        <label class="upload-label">Nomes de coluna aceitos para "Valor"</label>
+        <input class="campo" type="text" id="cfgAliasValor" value="${cfg.aliasesValor.join(', ')}">
+
+        <p class="secao-desc">
+            Separe vários nomes por vírgula. Não diferencia maiúsculas, espaços ou pontos.
+        </p>
+
+    </div>
+
+
+    <div class="tabela-card">
+
+        <h3>Histórico</h3>
+
+        <label class="upload-label">Quantidade de registros exibidos</label>
+        <input class="campo" type="number" id="cfgHistoricoLimite" min="1" max="200" value="${cfg.historicoLimite}">
+
+        <button class="botao-secundario" style="border-color: var(--cor-erro); color: var(--cor-erro);" onclick="limparHistorico()">
+            Limpar todo o histórico
+        </button>
+
+    </div>
+
+
+    <div class="tabela-card">
+
+        <h3>Aparência</h3>
+
+        <div style="display:flex; gap:10px;">
+
+            <button class="botao-secundario" id="botaoTemaClaro" onclick="alterarTema('claro')">
+                Claro
+            </button>
+
+            <button class="botao-secundario" id="botaoTemaEscuro" onclick="alterarTema('escuro')">
+                Escuro
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <button class="botao-primario" onclick="salvarConfiguracoes()">
+        Salvar configurações
+    </button>
+
+    <p id="mensagemConfig" class="secao-desc" style="margin-top:10px;"></p>
+
+    `;
+
+    marcarBotaoTemaAtivo(temaAtual);
+
+}
+
+
+
+function marcarBotaoTemaAtivo(tema){
+
+    document.getElementById("botaoTemaClaro")
+    .classList.toggle("botao-selecionado", tema !== "escuro");
+
+    document.getElementById("botaoTemaEscuro")
+    .classList.toggle("botao-selecionado", tema === "escuro");
+
+}
+
+
+
+function alterarTema(tema){
+
+    localStorage.setItem("taxicheckTema", tema);
+
+    document.body.classList.toggle("tema-escuro", tema === "escuro");
+
+    marcarBotaoTemaAtivo(tema);
+
+}
+
+
+
+function atualizarSenha(){
+
+    let nova = document.getElementById("novaSenha").value;
+    let confirmar = document.getElementById("confirmarSenha").value;
+    let mensagem = document.getElementById("mensagemSenha");
+
+    mensagem.style.color = "var(--cor-erro)";
+    mensagem.innerHTML = "";
+
+    if(!nova || nova.length < 6){
+
+        mensagem.innerHTML = "A senha deve ter pelo menos 6 caracteres";
+
+        return;
+
+    }
+
+    if(nova !== confirmar){
+
+        mensagem.innerHTML = "As senhas não coincidem";
+
+        return;
+
+    }
+
+    firebase.auth().currentUser.updatePassword(nova)
+    .then(function(){
+
+        mensagem.style.color = "var(--cor-sucesso)";
+        mensagem.innerHTML = "Senha atualizada com sucesso";
+
+        document.getElementById("novaSenha").value = "";
+        document.getElementById("confirmarSenha").value = "";
+
+    })
+    .catch(function(erro){
+
+        if(erro.code === "auth/requires-recent-login"){
+
+            mensagem.innerHTML = "Por segurança, saia e entre de novo antes de trocar a senha";
+
+        } else {
+
+            mensagem.innerHTML = "Não foi possível atualizar a senha";
+
+        }
+
+    });
+
+}
+
+
+
+function salvarConfiguracoes(){
+
+    let tolerancia = parseFloat(document.getElementById("cfgTolerancia").value);
+
+    let aliasesNumero = document.getElementById("cfgAliasNumero").value
+        .split(",")
+        .map(function(v){ return v.trim(); })
+        .filter(Boolean);
+
+    let aliasesValor = document.getElementById("cfgAliasValor").value
+        .split(",")
+        .map(function(v){ return v.trim(); })
+        .filter(Boolean);
+
+    let historicoLimite = parseInt(document.getElementById("cfgHistoricoLimite").value);
+
+    let mensagem = document.getElementById("mensagemConfig");
+
+    mensagem.style.color = "var(--cor-erro)";
+
+    if(isNaN(tolerancia) || tolerancia < 0){
+
+        mensagem.innerHTML = "Tolerância inválida";
+
+        return;
+
+    }
+
+    if(!aliasesNumero.length || !aliasesValor.length){
+
+        mensagem.innerHTML = "Informe pelo menos um nome de coluna para Número e para Valor";
+
+        return;
+
+    }
+
+    if(isNaN(historicoLimite) || historicoLimite < 1){
+
+        historicoLimite = 30;
+
+    }
+
+    let novaConfig = {
+
+        tolerancia: tolerancia,
+
+        aliasesNumero: aliasesNumero,
+
+        aliasesValor: aliasesValor,
+
+        historicoLimite: historicoLimite
+
+    };
+
+    let uid = firebase.auth().currentUser.uid;
+
+    db.collection("configuracoes").doc(uid).set(novaConfig)
+    .then(function(){
+
+        window.configUsuario = novaConfig;
+
+        mensagem.style.color = "var(--cor-sucesso)";
+        mensagem.innerHTML = "Configurações salvas";
+
+    })
+    .catch(function(erro){
+
+        console.error("Erro ao salvar configurações:", erro);
+
+        mensagem.innerHTML = "Não foi possível salvar as configurações";
+
+    });
+
+}
+
+
+
+function limparHistorico(){
+
+    if(!confirm("Isso vai apagar todo o histórico de comparações. Deseja continuar?")){
+
+        return;
+
+    }
+
+    let uid = firebase.auth().currentUser.uid;
+
+    db.collection("historico")
+    .where("uid", "==", uid)
+    .get()
+    .then(function(snapshot){
+
+        let lote = db.batch();
+
+        snapshot.forEach(function(doc){
+
+            lote.delete(doc.ref);
+
+        });
+
+        return lote.commit();
+
+    })
+    .then(function(){
+
+        alert("Histórico apagado");
+
+    })
+    .catch(function(erro){
+
+        console.error("Erro ao apagar histórico:", erro);
+
+        alert("Não foi possível apagar o histórico");
 
     });
 
@@ -454,19 +811,31 @@ function verificarDadosCarregados(){
 
 }
 
+function normalizarNomeColuna(nome){
+
+    return nome
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\./g, "")
+    .replace(/\s+/g, "");
+
+}
+
+
+
 function encontrarColunaNumero(cabecalho){
+
+    let aliases = (window.configUsuario && window.configUsuario.aliasesNumero)
+        || configuracaoPadrao().aliasesNumero;
+
+    aliases = aliases.map(normalizarNomeColuna);
 
     for(let coluna of cabecalho){
 
-        let nome = coluna
-        .toString()
-        .toLowerCase()
-        .trim()
-        .replace(".","")
-        .replace(" ","");
+        let nome = normalizarNomeColuna(coluna);
 
-
-        if(nome === "numero" || nome === "nochamado"){
+        if(aliases.indexOf(nome) !== -1){
 
             return coluna;
 
@@ -483,16 +852,16 @@ function encontrarColunaNumero(cabecalho){
 
 function encontrarColunaValor(cabecalho){
 
+    let aliases = (window.configUsuario && window.configUsuario.aliasesValor)
+        || configuracaoPadrao().aliasesValor;
+
+    aliases = aliases.map(normalizarNomeColuna);
+
     for(let coluna of cabecalho){
 
-        let nome = coluna
-        .toString()
-        .toLowerCase()
-        .trim()
-        .replace(" ","");
+        let nome = normalizarNomeColuna(coluna);
 
-
-        if(nome === "valor"){
+        if(aliases.indexOf(nome) !== -1){
 
             return coluna;
 
@@ -515,7 +884,9 @@ function compararDados(){
 let divergenciasValor = [];
 let naoEncontrados = [];
 
-const tolerancia = 0.25;
+const tolerancia = (window.configUsuario && typeof window.configUsuario.tolerancia === "number")
+    ? window.configUsuario.tolerancia
+    : configuracaoPadrao().tolerancia;
 
 
     let colunaNumeroRef =

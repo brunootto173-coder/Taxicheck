@@ -480,6 +480,33 @@ table{
 }
 
 
+/* Campos de formulário genéricos (usados em Configurações) */
+
+.campo{
+    width: 100%;
+    padding: 10px 12px;
+    margin: 6px 0 16px;
+    border-radius: 8px;
+    border: 1px solid var(--cor-borda);
+    font-family: var(--fonte-corpo);
+    font-size: 14px;
+    background: var(--cor-fundo);
+    color: var(--cor-texto);
+}
+
+.campo:focus{
+    outline: 2px solid var(--cor-primaria);
+    outline-offset: 1px;
+    background: var(--cor-superficie);
+}
+
+.botao-selecionado{
+    background: var(--cor-primaria);
+    border-color: var(--cor-primaria);
+    color: #fff;
+}
+
+
 /* Mensagens de status simples (planilhas carregadas etc.) */
 
 .status-info{
@@ -493,6 +520,22 @@ table{
 .status-info p{
     margin: 0 0 12px;
     font-size: 14px;
+}
+
+
+/* =========================================================
+   TEMA ESCURO — a barra lateral já é escura por padrão,
+   aqui só o conteúdo principal e o login trocam de tom
+   ========================================================= */
+
+body.tema-escuro{
+    --cor-fundo: #0B1220;
+    --cor-superficie: #131F30;
+    --cor-texto: #E8EDF2;
+    --cor-texto-suave: #93A1B0;
+    --cor-borda: #223047;
+    --cor-primaria: #2E75A6;
+    --cor-primaria-hover: #3A87BC;
 }
 
 
