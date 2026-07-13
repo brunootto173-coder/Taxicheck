@@ -1538,11 +1538,9 @@ function prepararPlanilhas(){
 
     </div>
 
-    <button class="botao-primario">
-
-        Preparar Planilhas
-
-    </button>
+    <button class="botao-primario" onclick="iniciarPreparacao()">
+    Preparar Planilhas
+</button>
 
     `;
 
