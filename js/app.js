@@ -687,6 +687,41 @@ function organizarPlanilha(){
 
 
 
+function corrigirIntervaloPlanilha(planilha){
+
+    let enderecos = Object.keys(planilha)
+        .filter(function(chave){ return chave[0] !== "!"; });
+
+    if(enderecos.length === 0){
+
+        return;
+
+    }
+
+    let intervalo = {
+
+        s: { r: Infinity, c: Infinity },
+        e: { r: -Infinity, c: -Infinity }
+
+    };
+
+    enderecos.forEach(function(endereco){
+
+        let celula = XLSX.utils.decode_cell(endereco);
+
+        if(celula.r < intervalo.s.r) intervalo.s.r = celula.r;
+        if(celula.r > intervalo.e.r) intervalo.e.r = celula.r;
+        if(celula.c < intervalo.s.c) intervalo.s.c = celula.c;
+        if(celula.c > intervalo.e.c) intervalo.e.c = celula.c;
+
+    });
+
+    planilha["!ref"] = XLSX.utils.encode_range(intervalo);
+
+}
+
+
+
 function processarPlanilhaBruta(){
 
     let arquivo = document.getElementById("arquivoBruto").files[0];
@@ -711,7 +746,11 @@ function processarPlanilhaBruta(){
 
         let planilha = workbook.Sheets[primeiraAba];
 
+        corrigirIntervaloPlanilha(planilha);
+
         let linhas = XLSX.utils.sheet_to_json(planilha, {header: 1, defval: ""});
+
+        console.log("DEBUG - primeiras 15 linhas lidas:", linhas.slice(0, 15));
 
         let resultado = extrairColunasPlanilhaBruta(linhas);
 
@@ -762,8 +801,6 @@ function pareceValorValido(valor){
 
 
 function extrairColunasPlanilhaBruta(linhas){
-
-    console.log("DEBUG - primeiras 15 linhas lidas:", linhas.slice(0, 15));
 
     let aliasesNumero = (window.configUsuario && window.configUsuario.aliasesNumero)
         || configuracaoPadrao().aliasesNumero;
@@ -1004,6 +1041,9 @@ function lerExcel(arquivo, tipo){
 
         let planilha =
         workbook.Sheets[primeiraAba];
+
+
+        corrigirIntervaloPlanilha(planilha);
 
 
         let dadosExcel =
