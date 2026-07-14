@@ -1,3 +1,5 @@
+alert("Preparador carregado");
+
 function prepararPlanilhas(){
 
     document.getElementById("resultado").innerHTML = `
