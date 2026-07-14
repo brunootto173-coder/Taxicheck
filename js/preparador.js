@@ -188,15 +188,51 @@ const Preparador = {
 
     processar(){
 
-        this.status("Iniciando preparação...");
+    this.status("Localizando cabeçalhos...");
 
-        console.log("Dados:",this.planilhaDados);
+    const cabDados =
+        this.localizarCabecalho(this.planilhaDados);
 
-        console.log("Conferência:",this.planilhaConferencia);
+    const cabConf =
+        this.localizarCabecalho(this.planilhaConferencia);
+
+    if(cabDados === -1 || cabConf === -1){
+
+        this.status("Não foi possível localizar o cabeçalho das planilhas.");
+
+        return;
 
     }
 
-};
+    this.planilhaDados =
+        this.planilhaDados.slice(cabDados);
+
+    this.planilhaConferencia =
+        this.planilhaConferencia.slice(cabConf);
+
+    this.planilhaDados =
+        this.removerLinhasVazias(this.planilhaDados);
+
+    this.planilhaConferencia =
+        this.removerLinhasVazias(this.planilhaConferencia);
+
+    this.planilhaDados =
+        this.removerTextos(this.planilhaDados);
+
+    this.planilhaConferencia =
+        this.removerTextos(this.planilhaConferencia);
+
+    this.status(
+
+        "Limpeza inicial concluída.<br><br>" +
+
+        "Dados: " + this.planilhaDados.length + " linhas<br>" +
+
+        "Conferência: " + this.planilhaConferencia.length + " linhas"
+
+    );
+
+}
 
 
 // Esta função será chamada pelo menu lateral
@@ -206,3 +242,110 @@ function prepararPlanilhas(){
     Preparador.iniciar();
 
 }
+
+// =======================================
+// PARTE 2 - Limpeza Inicial
+// =======================================
+
+Preparador.localizarCabecalho = function(linhas){
+
+    const numero = [
+        "numero",
+        "número",
+        "chamado",
+        "no.chamado",
+        "id",
+        "corrida",
+        "nº"
+    ];
+
+    const valor = [
+        "valor",
+        "valor total",
+        "preço",
+        "total",
+        "recebido"
+    ];
+
+    for(let i = 0; i < linhas.length; i++){
+
+        let encontrouNumero = false;
+        let encontrouValor = false;
+
+        for(let celula of linhas[i]){
+
+            let texto = String(celula)
+                .toLowerCase()
+                .trim();
+
+            if(numero.includes(texto))
+                encontrouNumero = true;
+
+            if(valor.includes(texto))
+                encontrouValor = true;
+
+        }
+
+        if(encontrouNumero && encontrouValor){
+
+            return i;
+
+        }
+
+    }
+
+    return -1;
+
+};
+
+
+Preparador.removerLinhasVazias = function(linhas){
+
+    return linhas.filter(function(linha){
+
+        return linha.some(function(celula){
+
+            return String(celula).trim() !== "";
+
+        });
+
+    });
+
+};
+
+
+Preparador.removerTextos = function(linhas){
+
+    const ignorar = [
+
+        "relatório",
+        "relatorio",
+        "empresa",
+        "gerado",
+        "observação",
+        "observacoes",
+        "observações",
+        "página",
+        "pagina",
+        "subtotal",
+        "total geral",
+        "fim"
+
+    ];
+
+    return linhas.filter(function(linha){
+
+        let texto = linha.join(" ").toLowerCase();
+
+        for(let palavra of ignorar){
+
+            if(texto.includes(palavra))
+                return false;
+
+        }
+
+        return true;
+
+    });
+
+};
