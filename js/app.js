@@ -763,6 +763,8 @@ function pareceValorValido(valor){
 
 function extrairColunasPlanilhaBruta(linhas){
 
+    console.log("DEBUG - primeiras 15 linhas lidas:", linhas.slice(0, 15));
+
     let aliasesNumero = (window.configUsuario && window.configUsuario.aliasesNumero)
         || configuracaoPadrao().aliasesNumero;
 
