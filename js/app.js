@@ -741,6 +741,26 @@ function processarPlanilhaBruta(){
 
 
 
+function pareceValorValido(valor){
+
+    if(valor === "" || valor === null || valor === undefined){
+
+        return false;
+
+    }
+
+    let normalizado = valor
+    .toString()
+    .replace("R$", "")
+    .replace(/\s/g, "")
+    .replace(",", ".");
+
+    return normalizado !== "" && !isNaN(Number(normalizado));
+
+}
+
+
+
 function extrairColunasPlanilhaBruta(linhas){
 
     let aliasesNumero = (window.configUsuario && window.configUsuario.aliasesNumero)
@@ -764,6 +784,7 @@ function extrairColunasPlanilhaBruta(linhas){
             let nomeColunaValor = linha[indiceValor];
 
             let dadosExtraidos = [];
+            let ignoradas = 0;
 
             for(let l = i + 1; l < linhas.length; l++){
 
@@ -771,7 +792,14 @@ function extrairColunasPlanilhaBruta(linhas){
 
                 if(!linhaDados ||
                    linhaDados[indiceNumero] === undefined ||
-                   linhaDados[indiceNumero] === ""){
+                   linhaDados[indiceNumero] === "" ||
+                   !pareceValorValido(linhaDados[indiceValor])){
+
+                    if(linhaDados && linhaDados[indiceNumero] !== undefined && linhaDados[indiceNumero] !== ""){
+
+                        ignoradas++;
+
+                    }
 
                     continue;
 
@@ -791,7 +819,8 @@ function extrairColunasPlanilhaBruta(linhas){
                 linhaCabecalho: i,
                 colunaNumero: nomeColunaNumero,
                 colunaValor: nomeColunaValor,
-                dados: dadosExtraidos
+                dados: dadosExtraidos,
+                ignoradas: ignoradas
 
             };
 
@@ -824,6 +853,7 @@ function mostrarPreviewOrganizada(resultado){
         <p>
             ✓ Encontrei o cabeçalho e extraí <b>${linhas.length}</b> corridas usando as colunas
             "<b>${resultado.colunaNumero}</b>" e "<b>${resultado.colunaValor}</b>".
+            ${resultado.ignoradas > 0 ? `<br>${resultado.ignoradas} linha(s) sem um valor numérico válido foram ignoradas (agrupamentos, subtotais, cabeçalhos repetidos etc.).` : ""}
         </p>
     </div>
 
