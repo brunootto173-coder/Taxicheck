@@ -54,6 +54,8 @@ function prepararPlanilhas(){
     Preparar Planilhas
 </button>
 
+<div id="statusPreparacao"></div>
+
     `;
 
 }
