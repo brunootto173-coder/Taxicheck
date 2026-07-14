@@ -659,6 +659,227 @@ function limparHistorico(){
 
 
 
+function organizarPlanilha(){
+
+    document.getElementById("resultado").innerHTML = `
+
+    <div class="secao-titulo">
+        <h2>Organizar Planilha</h2>
+        <p class="secao-desc">
+            Envie a planilha exportada direto do sistema — o TaxiCheck localiza sozinho as colunas de número e valor (usando os mesmos nomes configurados em Configurações) e gera um arquivo já pronto pra usar em "Comparar Planilhas".
+        </p>
+    </div>
+
+    <label class="upload-card" style="max-width:420px;">
+        <span class="upload-label">Planilha bruta (exportada do sistema)</span>
+        <input type="file" id="arquivoBruto" accept=".xlsx,.xls">
+    </label>
+
+    <button class="botao-primario" onclick="processarPlanilhaBruta()">
+        Organizar Planilha
+    </button>
+
+    <div id="resultadoOrganizar" style="margin-top:24px;"></div>
+
+    `;
+
+}
+
+
+
+function processarPlanilhaBruta(){
+
+    let arquivo = document.getElementById("arquivoBruto").files[0];
+
+    if(!arquivo){
+
+        alert("Selecione a planilha exportada do sistema");
+
+        return;
+
+    }
+
+    let leitor = new FileReader();
+
+    leitor.onload = function(e){
+
+        let dados = new Uint8Array(e.target.result);
+
+        let workbook = XLSX.read(dados, {type: "array"});
+
+        let primeiraAba = workbook.SheetNames[0];
+
+        let planilha = workbook.Sheets[primeiraAba];
+
+        let linhas = XLSX.utils.sheet_to_json(planilha, {header: 1, defval: ""});
+
+        let resultado = extrairColunasPlanilhaBruta(linhas);
+
+        if(!resultado || !resultado.dados.length){
+
+            document.getElementById("resultadoOrganizar").innerHTML = `
+
+            <div class="status-info">
+                <p>Não encontrei as colunas de número e valor nessa planilha. Confira em Configurações se os nomes de coluna aceitos batem com o cabeçalho do arquivo.</p>
+            </div>
+
+            `;
+
+            return;
+
+        }
+
+        window.planilhaOrganizada = resultado.dados;
+
+        mostrarPreviewOrganizada(resultado);
+
+    };
+
+    leitor.readAsArrayBuffer(arquivo);
+
+}
+
+
+
+function extrairColunasPlanilhaBruta(linhas){
+
+    let aliasesNumero = (window.configUsuario && window.configUsuario.aliasesNumero)
+        || configuracaoPadrao().aliasesNumero;
+
+    let aliasesValor = (window.configUsuario && window.configUsuario.aliasesValor)
+        || configuracaoPadrao().aliasesValor;
+
+    for(let i = 0; i < Math.min(15, linhas.length); i++){
+
+        let linha = linhas[i];
+
+        if(!linha || !linha.length) continue;
+
+        let indiceNumero = encontrarIndiceColuna(linha, aliasesNumero);
+        let indiceValor = encontrarIndiceColuna(linha, aliasesValor);
+
+        if(indiceNumero !== -1 && indiceValor !== -1){
+
+            let nomeColunaNumero = linha[indiceNumero];
+            let nomeColunaValor = linha[indiceValor];
+
+            let dadosExtraidos = [];
+
+            for(let l = i + 1; l < linhas.length; l++){
+
+                let linhaDados = linhas[l];
+
+                if(!linhaDados ||
+                   linhaDados[indiceNumero] === undefined ||
+                   linhaDados[indiceNumero] === ""){
+
+                    continue;
+
+                }
+
+                let registro = {};
+
+                registro[nomeColunaNumero] = linhaDados[indiceNumero];
+                registro[nomeColunaValor] = linhaDados[indiceValor];
+
+                dadosExtraidos.push(registro);
+
+            }
+
+            return {
+
+                linhaCabecalho: i,
+                colunaNumero: nomeColunaNumero,
+                colunaValor: nomeColunaValor,
+                dados: dadosExtraidos
+
+            };
+
+        }
+
+    }
+
+    return null;
+
+}
+
+
+
+function mostrarPreviewOrganizada(resultado){
+
+    let linhas = resultado.dados;
+
+    let linhasPreview = linhas.slice(0, 10).map(function(l){
+
+        return `<tr>
+            <td>${l[resultado.colunaNumero]}</td>
+            <td>${l[resultado.colunaValor]}</td>
+        </tr>`;
+
+    }).join("");
+
+    document.getElementById("resultadoOrganizar").innerHTML = `
+
+    <div class="status-info">
+        <p>
+            ✓ Encontrei o cabeçalho e extraí <b>${linhas.length}</b> corridas usando as colunas
+            "<b>${resultado.colunaNumero}</b>" e "<b>${resultado.colunaValor}</b>".
+        </p>
+    </div>
+
+    <div class="tabela-card">
+
+        <h3>Prévia (10 primeiras linhas)</h3>
+
+        <table>
+
+        <thead>
+        <tr>
+            <th>${resultado.colunaNumero}</th>
+            <th>${resultado.colunaValor}</th>
+        </tr>
+        </thead>
+
+        <tbody>
+        ${linhasPreview}
+        </tbody>
+
+        </table>
+
+    </div>
+
+    <button class="botao-primario" onclick="baixarPlanilhaOrganizada()">
+        Baixar planilha organizada
+    </button>
+
+    `;
+
+}
+
+
+
+function baixarPlanilhaOrganizada(){
+
+    if(!window.planilhaOrganizada){
+
+        alert("Organize uma planilha primeiro");
+
+        return;
+
+    }
+
+    let planilha = XLSX.utils.json_to_sheet(window.planilhaOrganizada);
+
+    let workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, planilha, "Planilha Organizada");
+
+    XLSX.writeFile(workbook, "TaxiCheck_Planilha_Organizada.xlsx");
+
+}
+
+
+
 function comparar(){
 
     document.getElementById("resultado").innerHTML = `
@@ -819,6 +1040,28 @@ function normalizarNomeColuna(nome){
     .trim()
     .replace(/\./g, "")
     .replace(/\s+/g, "");
+
+}
+
+
+
+function encontrarIndiceColuna(linhaCabecalho, aliases){
+
+    let aliasesNorm = aliases.map(normalizarNomeColuna);
+
+    for(let i = 0; i < linhaCabecalho.length; i++){
+
+        let nome = normalizarNomeColuna(linhaCabecalho[i] || "");
+
+        if(aliasesNorm.indexOf(nome) !== -1){
+
+            return i;
+
+        }
+
+    }
+
+    return -1;
 
 }
 
@@ -1487,4 +1730,3 @@ XLSX.utils.book_append_sheet(
 
 
 }
-
