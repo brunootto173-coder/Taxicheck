@@ -1189,6 +1189,42 @@ function encontrarColunaValor(cabecalho){
 
 }
 
+function correspondemChamados(valorRef, valorConf){
+
+    let ref = (valorRef === null || valorRef === undefined) ? "" : valorRef.toString().trim();
+    let conf = (valorConf === null || valorConf === undefined) ? "" : valorConf.toString().trim();
+
+    if(ref === "" || conf === ""){
+
+        return false;
+
+    }
+
+    if(ref === conf){
+
+        return true;
+
+    }
+
+    // se o número de referência começa com letras (ex: TTB181910),
+    // a conferência costuma trocar essas letras por um código numérico
+    // fixo, mantendo o restante dos dígitos igual (ex: 882181910).
+    // Nesse caso, compara só o "miolo" numérico final.
+
+    let refSemLetras = ref.replace(/^[A-Za-z]+/, "");
+
+    if(refSemLetras === ref || refSemLetras === ""){
+
+        return false;
+
+    }
+
+    return conf.slice(-refSemLetras.length) === refSemLetras;
+
+}
+
+
+
 function compararDados(){
 
     let referencia = window.planilhaReferencia;
@@ -1246,8 +1282,10 @@ referencia.forEach(linhaRef => {
 
 
     if(
-        linhaRef[colunaNumeroRef] ==
-        linhaConf[colunaNumeroConf]
+        correspondemChamados(
+            linhaRef[colunaNumeroRef],
+            linhaConf[colunaNumeroConf]
+        )
     ){
 
         let valorReferencia =
