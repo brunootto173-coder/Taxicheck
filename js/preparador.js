@@ -133,20 +133,64 @@ function verificarArquivos(){
         window.planilhaConferencia
     ){
 
+        let cabecalhoDados =
+        localizarCabecalho(window.planilhaDados);
+
+        let cabecalhoConferencia =
+        localizarCabecalho(window.planilhaConferencia);
+
         document.getElementById("statusPreparacao").innerHTML = `
 
             <div class="status-info">
 
-                <p>✅ As duas planilhas foram carregadas.</p>
+                <p>✅ Planilhas carregadas.</p>
+
+                <br>
+
+                <p>
+                    Cabeçalho Dados:
+                    <b>Linha ${cabecalhoDados + 1}</b>
+                </p>
+
+                <p>
+                    Cabeçalho Conferência:
+                    <b>Linha ${cabecalhoConferencia + 1}</b>
+                </p>
 
             </div>
 
         `;
 
-        console.log(window.planilhaDados);
+        console.log("Cabeçalho Dados:",cabecalhoDados);
 
-        console.log(window.planilhaConferencia);
+        console.log("Cabeçalho Conferência:",cabecalhoConferencia);
 
     }
+
+}
+
+function localizarCabecalho(linhas){
+
+    for(let i = 0; i < linhas.length; i++){
+
+        let linha = linhas[i].join(" ")
+            .toLowerCase();
+
+        if(
+            linha.includes("valor") &&
+            (
+                linha.includes("numero") ||
+                linha.includes("número") ||
+                linha.includes("chamado")
+            )
+        ){
+
+            return i;
+
+        }
+
+    }
+
+    return -1;
 
 }
