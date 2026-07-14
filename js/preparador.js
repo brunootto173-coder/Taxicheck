@@ -1,227 +1,208 @@
-alert("Preparador carregado");
+// =====================================================
+// TaxiCheck 5.0
+// Preparador Inteligente de Planilhas
+// Parte 1
+// =====================================================
 
-function prepararPlanilhas(){
+const Preparador = {
 
-    document.getElementById("resultado").innerHTML = `
+    dados: null,
+    conferencia: null,
 
-    <div class="secao-titulo">
+    iniciar() {
 
-        <h2>Preparar Planilhas</h2>
+        document.getElementById("resultado").innerHTML = `
 
-        <p class="secao-desc">
+        <div class="secao-titulo">
 
-            Organize automaticamente suas planilhas antes da comparação.
+            <h2>Preparar Planilhas</h2>
 
-        </p>
+            <p class="secao-desc">
 
-    </div>
+                Organize automaticamente suas planilhas antes da comparação.
 
-    <div class="upload-grid">
+            </p>
 
-        <label class="upload-card">
+        </div>
 
-            <span class="upload-label">
+        <div class="upload-grid">
 
-                Planilha de Dados
+            <label class="upload-card">
 
-            </span>
+                <span class="upload-label">
+                    Planilha de Dados
+                </span>
 
-            <input
-                type="file"
-                id="arquivoDados"
-                accept=".xlsx,.xls">
+                <input
+                    type="file"
+                    id="arquivoDadosPreparador"
+                    accept=".xlsx,.xls">
 
-        </label>
+            </label>
 
-        <label class="upload-card">
+            <label class="upload-card">
 
-            <span class="upload-label">
+                <span class="upload-label">
+                    Planilha de Conferência
+                </span>
 
-                Planilha de Conferência
+                <input
+                    type="file"
+                    id="arquivoConferenciaPreparador"
+                    accept=".xlsx,.xls">
 
-            </span>
+            </label>
 
-            <input
-                type="file"
-                id="arquivoConferenciaPreparar"
-                accept=".xlsx,.xls">
+        </div>
 
-        </label>
+        <button
+            class="botao-primario"
+            onclick="Preparador.carregarArquivos()">
 
-    </div>
+            Preparar Planilhas
 
-    <button class="botao-primario" onclick="iniciarPreparacao()">
-    Preparar Planilhas
-</button>
+        </button>
 
-<div id="statusPreparacao"></div>
+        <div
+            id="statusPreparador"
+            style="margin-top:30px;">
+        </div>
 
-    `;
+        `;
 
-}
+    },
 
-function iniciarPreparacao(){
+    carregarArquivos(){
 
-    let arquivoDados =
-    document.getElementById("arquivoDados").files[0];
+        this.dados =
+        document.getElementById("arquivoDadosPreparador").files[0];
 
-    let arquivoConferencia =
-    document.getElementById("arquivoConferenciaPreparar").files[0];
+        this.conferencia =
+        document.getElementById("arquivoConferenciaPreparador").files[0];
 
-    if(!arquivoDados || !arquivoConferencia){
+        if(!this.dados || !this.conferencia){
 
-        alert("Selecione as duas planilhas.");
+            alert("Selecione as duas planilhas.");
 
-        return;
-
-    }
-
-    lerPlanilhaPreparacao(arquivoDados, "dados");
-    lerPlanilhaPreparacao(arquivoConferencia, "conferencia");
-
-}
-
-function lerPlanilhaPreparacao(arquivo, tipo){
-
-    let leitor = new FileReader();
-
-    leitor.onload = function(e){
-
-        let dados = new Uint8Array(e.target.result);
-
-        let workbook = XLSX.read(dados,{type:"array"});
-
-        let nomeAba = workbook.SheetNames[0];
-
-        let sheet = workbook.Sheets[nomeAba];
-
-        let linhas = XLSX.utils.sheet_to_json(sheet,{
-            header:1,
-            defval:""
-        });
-
-        if(tipo=="dados"){
-
-            window.planilhaDadosBruta = linhas;
-
-        }else{
-
-            window.planilhaConferenciaBruta = linhas;
+            return;
 
         }
 
-        verificarPreparacao();
+        this.status("Lendo planilhas...");
 
-    };
+        Promise.all([
 
-    leitor.readAsArrayBuffer(arquivo);
+            this.lerExcel(this.dados),
 
-}
+            this.lerExcel(this.conferencia)
 
-function verificarPreparacao(){
+        ])
 
-    if(
-        window.planilhaDadosBruta &&
-        window.planilhaConferenciaBruta
-    ){
+        .then(resultado=>{
 
-        document.getElementById("statusPreparacao").innerHTML=`
+            this.planilhaDados =
+            resultado[0];
+
+            this.planilhaConferencia =
+            resultado[1];
+
+            this.status("Planilhas carregadas.");
+
+            this.processar();
+
+        })
+
+        .catch(erro=>{
+
+            console.error(erro);
+
+            this.status("Erro ao abrir as planilhas.");
+
+        });
+
+    },
+
+    lerExcel(arquivo){
+
+        return new Promise((resolve,reject)=>{
+
+            const leitor =
+            new FileReader();
+
+            leitor.onload=(e)=>{
+
+                try{
+
+                    const workbook =
+                    XLSX.read(
+                        new Uint8Array(e.target.result),
+                        {type:"array"}
+                    );
+
+                    const aba =
+                    workbook.SheetNames[0];
+
+                    const sheet =
+                    workbook.Sheets[aba];
+
+                    const linhas =
+                    XLSX.utils.sheet_to_json(
+                        sheet,
+                        {
+                            header:1,
+                            defval:""
+                        }
+                    );
+
+                    resolve(linhas);
+
+                }
+
+                catch(erro){
+
+                    reject(erro);
+
+                }
+
+            };
+
+            leitor.readAsArrayBuffer(arquivo);
+
+        });
+
+    },
+
+    status(texto){
+
+        document.getElementById("statusPreparador").innerHTML=`
 
             <div class="status-info">
 
-                <p>✅ Planilhas carregadas.</p>
-
-                <button
-                    class="botao-primario"
-                    onclick="analisarPlanilhas()">
-
-                    Analisar Planilhas
-
-                </button>
+                <p>${texto}</p>
 
             </div>
 
         `;
 
-    }
+    },
 
-}
+    processar(){
 
-function analisarPlanilhas(){
+        this.status("Iniciando preparação...");
 
-    let cabecalhoDados =
-    localizarCabecalho(window.planilhaDadosBruta);
+        console.log("Dados:",this.planilhaDados);
 
-    let cabecalhoConferencia =
-    localizarCabecalho(window.planilhaConferenciaBruta);
-
-    document.getElementById("statusPreparacao").innerHTML = `
-
-        <div class="status-info">
-
-            <h3>Resultado da análise</h3>
-
-            <p><b>Planilha de Dados:</b> Cabeçalho encontrado na linha ${cabecalhoDados + 1}</p>
-
-            <p><b>Planilha de Conferência:</b> Cabeçalho encontrado na linha ${cabecalhoConferencia + 1}</p>
-
-        </div>
-
-    `;
-
-}
-
-function localizarCabecalho(linhas){
-
-    const palavrasNumero = [
-        "numero",
-        "número",
-        "chamado",
-        "no.chamado",
-        "nº",
-        "id",
-        "corrida"
-    ];
-
-    const palavrasValor = [
-        "valor",
-        "valor total",
-        "preço",
-        "total",
-        "recebido"
-    ];
-
-    for(let i = 0; i < linhas.length; i++){
-
-        let linha = linhas[i];
-
-        let encontrouNumero = false;
-        let encontrouValor = false;
-
-        for(let coluna of linha){
-
-            let texto = String(coluna)
-                .toLowerCase()
-                .trim();
-
-            if(palavrasNumero.includes(texto)){
-                encontrouNumero = true;
-            }
-
-            if(palavrasValor.includes(texto)){
-                encontrouValor = true;
-            }
-
-        }
-
-        if(encontrouNumero && encontrouValor){
-
-            return i;
-
-        }
+        console.log("Conferência:",this.planilhaConferencia);
 
     }
 
-    return -1;
+};
+
+
+// Esta função será chamada pelo menu lateral
+
+function prepararPlanilhas(){
+
+    Preparador.iniciar();
 
 }
