@@ -64,14 +64,89 @@ function prepararPlanilhas(){
 
 function iniciarPreparacao(){
 
-    document.getElementById("statusPreparacao").innerHTML = `
+    let arquivoDados =
+    document.getElementById("arquivoDados").files[0];
 
-        <div class="status-info">
+    let arquivoConferencia =
+    document.getElementById("arquivoConferencia").files[0];
 
-            <p>Funcionando corretamente ✅</p>
+    if(!arquivoDados || !arquivoConferencia){
 
-        </div>
+        alert("Selecione as duas planilhas.");
 
-    `;
+        return;
+
+    }
+
+    lerPlanilha(arquivoDados,"dados");
+
+    lerPlanilha(arquivoConferencia,"conferencia");
+
+}
+
+function lerPlanilha(arquivo,tipo){
+
+    let leitor = new FileReader();
+
+    leitor.onload = function(e){
+
+        let dados =
+        new Uint8Array(e.target.result);
+
+        let workbook =
+        XLSX.read(dados,{type:"array"});
+
+        let nomeAba =
+        workbook.SheetNames[0];
+
+        let sheet =
+        workbook.Sheets[nomeAba];
+
+        let linhas =
+        XLSX.utils.sheet_to_json(sheet,{
+            header:1,
+            defval:""
+        });
+
+        if(tipo=="dados"){
+
+            window.planilhaDados = linhas;
+
+        }else{
+
+            window.planilhaConferencia = linhas;
+
+        }
+
+        verificarArquivos();
+
+    };
+
+    leitor.readAsArrayBuffer(arquivo);
+
+}
+
+function verificarArquivos(){
+
+    if(
+        window.planilhaDados &&
+        window.planilhaConferencia
+    ){
+
+        document.getElementById("statusPreparacao").innerHTML = `
+
+            <div class="status-info">
+
+                <p>✅ As duas planilhas foram carregadas.</p>
+
+            </div>
+
+        `;
+
+        console.log(window.planilhaDados);
+
+        console.log(window.planilhaConferencia);
+
+    }
 
 }
