@@ -23,6 +23,8 @@ function configuracaoPadrao(){
 
         aliasesValor: ["valor"],
 
+        aliasesCliente: ["cliente", "nomecliente", "razaosocial"],
+
         historicoLimite: 30
 
     };
@@ -48,6 +50,66 @@ function carregarConfiguracoes(uid){
         window.configUsuario = configuracaoPadrao();
 
     });
+
+}
+
+
+
+function normalizarNomeCliente(nome){
+
+    return (nome === null || nome === undefined)
+        ? ""
+        : nome.toString().trim().toLowerCase().replace(/\s+/g, " ");
+
+}
+
+
+
+function carregarClientes(uid){
+
+    db.collection("clientes")
+    .where("uid", "==", uid)
+    .get()
+    .then(function(snapshot){
+
+        window.clientesUsuario = snapshot.docs.map(function(doc){
+
+            let d = doc.data();
+
+            return { id: doc.id, nome: d.nome, desconto: d.desconto };
+
+        });
+
+    })
+    .catch(function(erro){
+
+        console.error("Erro ao carregar clientes:", erro);
+
+        window.clientesUsuario = [];
+
+    });
+
+}
+
+
+
+function buscarDescontoCliente(nomeCliente){
+
+    if(!nomeCliente || !window.clientesUsuario || !window.clientesUsuario.length){
+
+        return null;
+
+    }
+
+    let alvo = normalizarNomeCliente(nomeCliente);
+
+    let encontrado = window.clientesUsuario.find(function(c){
+
+        return normalizarNomeCliente(c.nome) === alvo;
+
+    });
+
+    return encontrado ? encontrado.desconto : null;
 
 }
 
@@ -151,6 +213,8 @@ firebase.auth().onAuthStateChanged(function(usuario){
     if(usuario){
 
         carregarConfiguracoes(usuario.uid);
+
+        carregarClientes(usuario.uid);
 
         document.getElementById("loginTela")
         .classList.add("escondido");
@@ -314,11 +378,15 @@ function verDetalheHistorico(id){
 
         let d = doc.data();
 
+        let comDesconto = d.comDesconto || [];
+
         window.resultadoTaxiCheck = {
 
             total: d.total,
 
             encontrados: d.encontrados,
+
+            comDesconto: comDesconto,
 
             divergencias: d.divergencias,
 
@@ -348,6 +416,7 @@ function verDetalheHistorico(id){
         mostrarResultado(
             d.total,
             d.encontrados,
+            comDesconto,
             d.divergencias,
             d.naoEncontrados
         );
@@ -407,6 +476,9 @@ function configuracoes(){
 
         <label class="upload-label">Nomes de coluna aceitos para "Valor"</label>
         <input class="campo" type="text" id="cfgAliasValor" value="${cfg.aliasesValor.join(', ')}">
+
+        <label class="upload-label">Nomes de coluna aceitos para "Cliente"</label>
+        <input class="campo" type="text" id="cfgAliasCliente" value="${(cfg.aliasesCliente || configuracaoPadrao().aliasesCliente).join(', ')}">
 
         <p class="secao-desc">
             Separe vários nomes por vírgula. Não diferencia maiúsculas, espaços ou pontos.
@@ -553,6 +625,11 @@ function salvarConfiguracoes(){
         .map(function(v){ return v.trim(); })
         .filter(Boolean);
 
+    let aliasesCliente = document.getElementById("cfgAliasCliente").value
+        .split(",")
+        .map(function(v){ return v.trim(); })
+        .filter(Boolean);
+
     let historicoLimite = parseInt(document.getElementById("cfgHistoricoLimite").value);
 
     let mensagem = document.getElementById("mensagemConfig");
@@ -575,6 +652,12 @@ function salvarConfiguracoes(){
 
     }
 
+    if(!aliasesCliente.length){
+
+        aliasesCliente = configuracaoPadrao().aliasesCliente;
+
+    }
+
     if(isNaN(historicoLimite) || historicoLimite < 1){
 
         historicoLimite = 30;
@@ -588,6 +671,8 @@ function salvarConfiguracoes(){
         aliasesNumero: aliasesNumero,
 
         aliasesValor: aliasesValor,
+
+        aliasesCliente: aliasesCliente,
 
         historicoLimite: historicoLimite
 
@@ -652,6 +737,237 @@ function limparHistorico(){
         console.error("Erro ao apagar histórico:", erro);
 
         alert("Não foi possível apagar o histórico");
+
+    });
+
+}
+
+
+
+function clientes(){
+
+    document.getElementById("resultado").innerHTML = `
+
+    <div class="secao-titulo">
+        <h2>Clientes e Descontos</h2>
+        <p class="secao-desc">
+            Cadastre aqui os clientes que têm desconto fixo. Na hora de comparar, se a diferença de valor bater
+            certinho com o desconto do cliente, o TaxiCheck já reconhece como correto em vez de marcar como divergência.
+        </p>
+    </div>
+
+    <div class="tabela-card">
+
+        <h3>Novo cliente</h3>
+
+        <label class="upload-label">Nome do cliente (exatamente como aparece na planilha)</label>
+        <input class="campo" type="text" id="novoClienteNome" placeholder="Ex: Empresa XPTO Ltda">
+
+        <label class="upload-label">Desconto (%)</label>
+        <input class="campo" type="number" id="novoClienteDesconto" min="0" max="100" step="0.01" placeholder="Ex: 10">
+
+        <button class="botao-primario" onclick="adicionarCliente()">
+            Adicionar cliente
+        </button>
+
+        <p id="mensagemCliente" class="secao-desc" style="margin-top:10px;"></p>
+
+    </div>
+
+    <div class="tabela-card">
+
+        <h3>Clientes cadastrados</h3>
+
+        <div id="listaClientes">
+            <p class="secao-desc">Carregando...</p>
+        </div>
+
+    </div>
+
+    `;
+
+    carregarListaClientes();
+
+}
+
+
+
+function carregarListaClientes(){
+
+    let uid = firebase.auth().currentUser.uid;
+
+    db.collection("clientes")
+    .where("uid", "==", uid)
+    .get()
+    .then(function(snapshot){
+
+        let lista = [];
+
+        snapshot.forEach(function(doc){
+
+            let d = doc.data();
+
+            lista.push({ id: doc.id, nome: d.nome, desconto: d.desconto });
+
+        });
+
+        lista.sort(function(a, b){
+
+            return a.nome.localeCompare(b.nome, "pt-BR");
+
+        });
+
+        window.clientesUsuario = lista.map(function(c){
+
+            return { id: c.id, nome: c.nome, desconto: c.desconto };
+
+        });
+
+        if(lista.length === 0){
+
+            document.getElementById("listaClientes").innerHTML = `
+
+            <div class="status-info">
+                <p>Nenhum cliente cadastrado ainda.</p>
+            </div>
+
+            `;
+
+            return;
+
+        }
+
+        let html = `
+
+        <table>
+        <thead>
+        <tr>
+            <th>Cliente</th>
+            <th>Desconto</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+
+        `;
+
+        lista.forEach(function(c){
+
+            html += `
+
+            <tr>
+                <td>${c.nome}</td>
+                <td>${formatarPercentual(c.desconto)}</td>
+                <td>
+                    <button class="botao-secundario" style="border-color: var(--cor-erro); color: var(--cor-erro);" onclick="excluirCliente('${c.id}')">
+                        Excluir
+                    </button>
+                </td>
+            </tr>
+
+            `;
+
+        });
+
+        html += `</tbody></table>`;
+
+        document.getElementById("listaClientes").innerHTML = html;
+
+    })
+    .catch(function(erro){
+
+        console.error("Erro ao carregar clientes:", erro);
+
+        document.getElementById("listaClientes").innerHTML = `
+
+        <div class="status-info">
+            <p>Não foi possível carregar os clientes.</p>
+        </div>
+
+        `;
+
+    });
+
+}
+
+
+
+function adicionarCliente(){
+
+    let nome = document.getElementById("novoClienteNome").value.trim();
+    let desconto = parseFloat(document.getElementById("novoClienteDesconto").value);
+
+    let mensagem = document.getElementById("mensagemCliente");
+
+    mensagem.style.color = "var(--cor-erro)";
+
+    if(!nome){
+
+        mensagem.innerHTML = "Informe o nome do cliente";
+
+        return;
+
+    }
+
+    if(isNaN(desconto) || desconto < 0 || desconto > 100){
+
+        mensagem.innerHTML = "Informe um desconto entre 0 e 100";
+
+        return;
+
+    }
+
+    let uid = firebase.auth().currentUser.uid;
+
+    db.collection("clientes").add({
+
+        uid: uid,
+        nome: nome,
+        desconto: desconto
+
+    })
+    .then(function(){
+
+        mensagem.style.color = "var(--cor-sucesso)";
+        mensagem.innerHTML = "Cliente adicionado";
+
+        document.getElementById("novoClienteNome").value = "";
+        document.getElementById("novoClienteDesconto").value = "";
+
+        carregarListaClientes();
+
+    })
+    .catch(function(erro){
+
+        console.error("Erro ao adicionar cliente:", erro);
+
+        mensagem.innerHTML = "Não foi possível adicionar o cliente";
+
+    });
+
+}
+
+
+
+function excluirCliente(id){
+
+    if(!confirm("Excluir esse cliente? Corridas dele passam a ser conferidas sem desconto.")){
+
+        return;
+
+    }
+
+    db.collection("clientes").doc(id).delete()
+    .then(function(){
+
+        carregarListaClientes();
+
+    })
+    .catch(function(erro){
+
+        console.error("Erro ao excluir cliente:", erro);
+
+        alert("Não foi possível excluir o cliente");
 
     });
 
@@ -808,6 +1124,9 @@ function extrairColunasPlanilhaBruta(linhas){
     let aliasesValor = (window.configUsuario && window.configUsuario.aliasesValor)
         || configuracaoPadrao().aliasesValor;
 
+    let aliasesCliente = (window.configUsuario && window.configUsuario.aliasesCliente)
+        || configuracaoPadrao().aliasesCliente;
+
     for(let i = 0; i < Math.min(15, linhas.length); i++){
 
         let linha = linhas[i];
@@ -816,11 +1135,13 @@ function extrairColunasPlanilhaBruta(linhas){
 
         let indiceNumero = encontrarIndiceColuna(linha, aliasesNumero);
         let indiceValor = encontrarIndiceColuna(linha, aliasesValor);
+        let indiceCliente = encontrarIndiceColuna(linha, aliasesCliente);
 
         if(indiceNumero !== -1 && indiceValor !== -1){
 
             let nomeColunaNumero = linha[indiceNumero];
             let nomeColunaValor = linha[indiceValor];
+            let nomeColunaCliente = indiceCliente !== -1 ? linha[indiceCliente] : null;
 
             let dadosExtraidos = [];
             let ignoradas = 0;
@@ -849,6 +1170,12 @@ function extrairColunasPlanilhaBruta(linhas){
                 registro[nomeColunaNumero] = linhaDados[indiceNumero];
                 registro[nomeColunaValor] = linhaDados[indiceValor];
 
+                if(indiceCliente !== -1){
+
+                    registro[nomeColunaCliente] = linhaDados[indiceCliente];
+
+                }
+
                 dadosExtraidos.push(registro);
 
             }
@@ -858,6 +1185,7 @@ function extrairColunasPlanilhaBruta(linhas){
                 linhaCabecalho: i,
                 colunaNumero: nomeColunaNumero,
                 colunaValor: nomeColunaValor,
+                colunaCliente: nomeColunaCliente,
                 dados: dadosExtraidos,
                 ignoradas: ignoradas
 
@@ -876,11 +1204,13 @@ function extrairColunasPlanilhaBruta(linhas){
 function mostrarPreviewOrganizada(resultado){
 
     let linhas = resultado.dados;
+    let temCliente = !!resultado.colunaCliente;
 
     let linhasPreview = linhas.slice(0, 10).map(function(l){
 
         return `<tr>
             <td>${l[resultado.colunaNumero]}</td>
+            ${temCliente ? `<td>${l[resultado.colunaCliente] || "-"}</td>` : ""}
             <td>${l[resultado.colunaValor]}</td>
         </tr>`;
 
@@ -891,7 +1221,7 @@ function mostrarPreviewOrganizada(resultado){
     <div class="status-info">
         <p>
             ✓ Encontrei o cabeçalho e extraí <b>${linhas.length}</b> corridas usando as colunas
-            "<b>${resultado.colunaNumero}</b>" e "<b>${resultado.colunaValor}</b>".
+            "<b>${resultado.colunaNumero}</b>"${temCliente ? `, "<b>${resultado.colunaCliente}</b>"` : ""} e "<b>${resultado.colunaValor}</b>".
             ${resultado.ignoradas > 0 ? `<br>${resultado.ignoradas} linha(s) sem um valor numérico válido foram ignoradas (agrupamentos, subtotais, cabeçalhos repetidos etc.).` : ""}
         </p>
     </div>
@@ -905,6 +1235,7 @@ function mostrarPreviewOrganizada(resultado){
         <thead>
         <tr>
             <th>${resultado.colunaNumero}</th>
+            ${temCliente ? `<th>${resultado.colunaCliente}</th>` : ""}
             <th>${resultado.colunaValor}</th>
         </tr>
         </thead>
@@ -1139,27 +1470,22 @@ function encontrarIndiceColuna(linhaCabecalho, aliases){
 
 
 
+function encontrarColuna(cabecalho, aliases){
+
+    let indice = encontrarIndiceColuna(cabecalho, aliases);
+
+    return indice === -1 ? null : cabecalho[indice];
+
+}
+
+
+
 function encontrarColunaNumero(cabecalho){
 
     let aliases = (window.configUsuario && window.configUsuario.aliasesNumero)
         || configuracaoPadrao().aliasesNumero;
 
-    aliases = aliases.map(normalizarNomeColuna);
-
-    for(let coluna of cabecalho){
-
-        let nome = normalizarNomeColuna(coluna);
-
-        if(aliases.indexOf(nome) !== -1){
-
-            return coluna;
-
-        }
-
-    }
-
-
-    return null;
+    return encontrarColuna(cabecalho, aliases);
 
 }
 
@@ -1170,22 +1496,18 @@ function encontrarColunaValor(cabecalho){
     let aliases = (window.configUsuario && window.configUsuario.aliasesValor)
         || configuracaoPadrao().aliasesValor;
 
-    aliases = aliases.map(normalizarNomeColuna);
+    return encontrarColuna(cabecalho, aliases);
 
-    for(let coluna of cabecalho){
-
-        let nome = normalizarNomeColuna(coluna);
-
-        if(aliases.indexOf(nome) !== -1){
-
-            return coluna;
-
-        }
-
-    }
+}
 
 
-    return null;
+
+function encontrarColunaCliente(cabecalho){
+
+    let aliases = (window.configUsuario && window.configUsuario.aliasesCliente)
+        || configuracaoPadrao().aliasesCliente;
+
+    return encontrarColuna(cabecalho, aliases);
 
 }
 
@@ -1232,6 +1554,7 @@ function compararDados(){
 
 
     let encontrados = [];
+let comDesconto = [];
 let divergenciasValor = [];
 let naoEncontrados = [];
 
@@ -1248,6 +1571,10 @@ const tolerancia = (window.configUsuario && typeof window.configUsuario.toleranc
     encontrarColunaValor(Object.keys(referencia[0]));
 
 
+    let colunaClienteRef =
+    encontrarColunaCliente(Object.keys(referencia[0]));
+
+
 
     let colunaNumeroConf =
     encontrarColunaNumero(Object.keys(conferencia[0]));
@@ -1255,6 +1582,10 @@ const tolerancia = (window.configUsuario && typeof window.configUsuario.toleranc
 
     let colunaValorConf =
     encontrarColunaValor(Object.keys(conferencia[0]));
+
+
+    let colunaClienteConf =
+    encontrarColunaCliente(Object.keys(conferencia[0]));
 
 
 
@@ -1304,6 +1635,10 @@ referencia.forEach(linhaRef => {
         (diferenca / valorReferencia) * 100;
 
 
+        let cliente = colunaClienteConf
+            ? linhaConf[colunaClienteConf]
+            : (colunaClienteRef ? linhaRef[colunaClienteRef] : null);
+
 
         if(diferenca <= tolerancia){
 
@@ -1313,21 +1648,58 @@ referencia.forEach(linhaRef => {
                 valorReferencia,
                 valorConferencia,
                 diferenca,
-                percentual
+                percentual,
+                cliente
 
             };
 
-        }else if(!resultadoLinha || resultadoLinha.tipo !== "encontrado"){
+        }else if(!resultadoLinha || (resultadoLinha.tipo !== "encontrado" && resultadoLinha.tipo !== "desconto")){
 
-            resultadoLinha = {
+            // a diferença pode ser explicada por um desconto
+            // cadastrado pra esse cliente — se bater, não é divergência de verdade
+
+            let desconto = buscarDescontoCliente(cliente);
+
+            let resultadoCandidato = {
 
                 tipo: "divergente",
                 valorReferencia,
                 valorConferencia,
                 diferenca,
-                percentual
+                percentual,
+                cliente
 
             };
+
+            if(desconto !== null){
+
+                let valorEsperado = valorReferencia * (1 - (desconto / 100));
+
+                let diferencaComDesconto =
+                Math.abs(valorEsperado - valorConferencia);
+
+                if(diferencaComDesconto <= tolerancia){
+
+                    resultadoCandidato = {
+
+                        tipo: "desconto",
+                        valorReferencia,
+                        valorConferencia,
+                        valorEsperado,
+                        desconto,
+                        diferenca: diferencaComDesconto,
+                        percentual: valorEsperado > 0
+                            ? (diferencaComDesconto / valorEsperado) * 100
+                            : 0,
+                        cliente
+
+                    };
+
+                }
+
+            }
+
+            resultadoLinha = resultadoCandidato;
 
         }
 
@@ -1346,6 +1718,11 @@ if(resultadoLinha && resultadoLinha.tipo === "encontrado"){
     encontrados.push(Object.assign({chamado}, resultadoLinha));
 
 
+}else if(resultadoLinha && resultadoLinha.tipo === "desconto"){
+
+    comDesconto.push(Object.assign({chamado}, resultadoLinha));
+
+
 }else if(resultadoLinha && resultadoLinha.tipo === "divergente"){
 
     divergenciasValor.push(Object.assign({chamado}, resultadoLinha));
@@ -1357,7 +1734,9 @@ if(resultadoLinha && resultadoLinha.tipo === "encontrado"){
 
         chamado,
 
-        valorConferencia: normalizarValor(linhaConf[colunaValorConf])
+        valorConferencia: normalizarValor(linhaConf[colunaValorConf]),
+
+        cliente: colunaClienteConf ? linhaConf[colunaClienteConf] : null
 
     });
 
@@ -1374,6 +1753,8 @@ if(resultadoLinha && resultadoLinha.tipo === "encontrado"){
 
     encontrados: encontrados,
 
+    comDesconto: comDesconto,
+
     divergencias: divergenciasValor,
 
     naoEncontrados: naoEncontrados
@@ -1384,6 +1765,7 @@ if(resultadoLinha && resultadoLinha.tipo === "encontrado"){
 mostrarResultado(
     conferencia.length,
     encontrados,
+    comDesconto,
     divergenciasValor,
     naoEncontrados
 );
@@ -1410,6 +1792,8 @@ function salvarHistorico(dados){
 
         encontrados: dados.encontrados,
 
+        comDesconto: dados.comDesconto || [],
+
         divergencias: dados.divergencias,
 
         naoEncontrados: dados.naoEncontrados
@@ -1426,7 +1810,7 @@ function salvarHistorico(dados){
 
 
 
-function montarLinhasResultado(encontrados, divergencias, naoEncontrados){
+function montarLinhasResultado(encontrados, comDesconto, divergencias, naoEncontrados){
 
     let linhas = [];
 
@@ -1435,11 +1819,30 @@ function montarLinhasResultado(encontrados, divergencias, naoEncontrados){
         linhas.push({
 
             chamado: item.chamado,
+            cliente: item.cliente || null,
             valorReferencia: item.valorReferencia,
             valorConferencia: item.valorConferencia,
             diferenca: item.diferenca,
             percentual: item.percentual,
+            desconto: null,
             status: "ok"
+
+        });
+
+    });
+
+    comDesconto.forEach(function(item){
+
+        linhas.push({
+
+            chamado: item.chamado,
+            cliente: item.cliente || null,
+            valorReferencia: item.valorReferencia,
+            valorConferencia: item.valorConferencia,
+            diferenca: item.diferenca,
+            percentual: item.percentual,
+            desconto: item.desconto,
+            status: "desconto"
 
         });
 
@@ -1450,10 +1853,12 @@ function montarLinhasResultado(encontrados, divergencias, naoEncontrados){
         linhas.push({
 
             chamado: item.chamado,
+            cliente: item.cliente || null,
             valorReferencia: item.valorReferencia,
             valorConferencia: item.valorConferencia,
             diferenca: item.diferenca,
             percentual: item.percentual,
+            desconto: null,
             status: "divergencia"
 
         });
@@ -1465,10 +1870,12 @@ function montarLinhasResultado(encontrados, divergencias, naoEncontrados){
         linhas.push({
 
             chamado: item.chamado,
+            cliente: item.cliente || null,
             valorReferencia: null,
             valorConferencia: item.valorConferencia !== undefined ? item.valorConferencia : item.valor,
             diferenca: null,
             percentual: null,
+            desconto: null,
             status: "nao-encontrado"
 
         });
@@ -1481,15 +1888,21 @@ function montarLinhasResultado(encontrados, divergencias, naoEncontrados){
 
 
 
-function badgeStatus(status){
+function badgeStatus(linha){
 
-    if(status === "ok"){
+    if(linha.status === "ok"){
 
         return '<span class="badge badge-sucesso">Encontrado</span>';
 
     }
 
-    if(status === "divergencia"){
+    if(linha.status === "desconto"){
+
+        return `<span class="badge badge-info">Desconto ${formatarPercentual(linha.desconto)}</span>`;
+
+    }
+
+    if(linha.status === "divergencia"){
 
         return '<span class="badge badge-alerta">Divergência</span>';
 
@@ -1509,6 +1922,7 @@ function filtrarResultado(status){
 
         "todos": "filtroTodos",
         "ok": "filtroOk",
+        "desconto": "filtroDesconto",
         "divergencia": "filtroDivergencia",
         "nao-encontrado": "filtroNaoEncontrado"
 
@@ -1557,9 +1971,15 @@ function renderizarTabelaResultado(){
 
         }
 
-        if(pesquisa && l.chamado.toString().toLowerCase().indexOf(pesquisa) === -1){
+        if(pesquisa){
 
-            return false;
+            let alvo = (l.chamado.toString() + " " + (l.cliente || "")).toLowerCase();
+
+            if(alvo.indexOf(pesquisa) === -1){
+
+                return false;
+
+            }
 
         }
 
@@ -1599,8 +2019,9 @@ function renderizarTabelaResultado(){
     corpo.innerHTML = filtradas.map(function(l){
 
         return `<tr class="linha-${l.status}">
-            <td>${badgeStatus(l.status)}</td>
+            <td>${badgeStatus(l)}</td>
             <td>${l.chamado}</td>
+            <td>${l.cliente || "-"}</td>
             <td>${l.valorReferencia !== null && l.valorReferencia !== undefined ? formatarMoeda(l.valorReferencia) : "-"}</td>
             <td>${l.valorConferencia !== null && l.valorConferencia !== undefined ? formatarMoeda(l.valorConferencia) : "-"}</td>
             <td>${l.diferenca !== null && l.diferenca !== undefined ? formatarMoeda(l.diferenca) : "-"}</td>
@@ -1613,11 +2034,11 @@ function renderizarTabelaResultado(){
 
 
 
-function mostrarResultado(total, encontrados, divergenciasValor, naoEncontrados, destino){
+function mostrarResultado(total, encontrados, comDesconto, divergenciasValor, naoEncontrados, destino){
 
     destino = destino || "resultadoComparacao";
 
-    window.linhasResultadoAtual = montarLinhasResultado(encontrados, divergenciasValor, naoEncontrados);
+    window.linhasResultadoAtual = montarLinhasResultado(encontrados, comDesconto, divergenciasValor, naoEncontrados);
     window.filtroResultadoAtual = "todos";
     window.pesquisaResultadoAtual = "";
 
@@ -1637,6 +2058,11 @@ function mostrarResultado(total, encontrados, divergenciasValor, naoEncontrados,
         <div class="stat-card stat-sucesso">
             <span class="stat-label">Encontrados</span>
             <span class="stat-valor">${encontrados.length}</span>
+        </div>
+
+        <div class="stat-card stat-info">
+            <span class="stat-label">Desconto aplicado</span>
+            <span class="stat-valor">${comDesconto.length}</span>
         </div>
 
         <div class="stat-card stat-alerta">
@@ -1665,6 +2091,10 @@ function mostrarResultado(total, encontrados, divergenciasValor, naoEncontrados,
                     Encontrados (${encontrados.length})
                 </button>
 
+                <button class="botao-secundario" id="filtroDesconto" onclick="filtrarResultado('desconto')">
+                    Desconto aplicado (${comDesconto.length})
+                </button>
+
                 <button class="botao-secundario" id="filtroDivergencia" onclick="filtrarResultado('divergencia')">
                     Divergência (${divergenciasValor.length})
                 </button>
@@ -1679,7 +2109,7 @@ function mostrarResultado(total, encontrados, divergenciasValor, naoEncontrados,
                 class="campo campo-busca"
                 type="text"
                 id="pesquisaChamado"
-                placeholder="Buscar por número do chamado..."
+                placeholder="Buscar por chamado ou cliente..."
                 oninput="pesquisarResultado(this.value)">
 
         </div>
@@ -1690,6 +2120,7 @@ function mostrarResultado(total, encontrados, divergenciasValor, naoEncontrados,
         <tr>
             <th>Status</th>
             <th>Chamado</th>
+            <th>Cliente</th>
             <th>Referência</th>
             <th>Conferência</th>
             <th>Diferença</th>
@@ -1771,37 +2202,14 @@ function exportarExcel(){
 
 
     let dados = window.resultadoTaxiCheck;
-
-
-    let resumo = [
-
-        {
-            "Informação":"Total analisado",
-            "Quantidade":dados.total
-        },
-
-        {
-            "Informação":"Encontrados",
-            "Quantidade":dados.encontrados.length
-        },
-
-        {
-            "Informação":"Divergência de valor",
-            "Quantidade":dados.divergencias.length
-        },
-
-        {
-            "Informação":"Não encontrados",
-            "Quantidade":dados.naoEncontrados.length
-        }
-
-    ];
-
+    let comDesconto = dados.comDesconto || [];
 
 
     let divergencias = dados.divergencias.map(item => ({
 
         "Chamado": item.chamado,
+
+        "Cliente": item.cliente || "",
 
         "Valor Referência": item.valorReferencia,
 
@@ -1817,6 +2225,8 @@ let encontrados = dados.encontrados.map(item => ({
 
     "Chamado": item.chamado,
 
+    "Cliente": item.cliente || "",
+
     "Valor Referência": item.valorReferencia !== undefined ? item.valorReferencia : "",
 
     "Valor Conferência": item.valorConferencia !== undefined ? item.valorConferencia : item.valor,
@@ -1825,9 +2235,31 @@ let encontrados = dados.encontrados.map(item => ({
 
 }));
 
+    let comDescontoExport = comDesconto.map(item => ({
+
+        "Chamado": item.chamado,
+
+        "Cliente": item.cliente || "",
+
+        "Desconto": item.desconto / 100,
+
+        "Valor Referência": item.valorReferencia,
+
+        "Valor Esperado (c/ desconto)": item.valorEsperado,
+
+        "Valor Conferência": item.valorConferencia,
+
+        "Diferença": item.diferenca,
+
+        "Percentual": item.percentual / 100
+
+    }));
+
     let naoEncontrados = dados.naoEncontrados.map(item => ({
 
     "Chamado": item.chamado,
+
+    "Cliente": item.cliente || "",
 
     "Valor": item.valorConferencia !== undefined ? item.valorConferencia : item.valor
 
@@ -1852,6 +2284,8 @@ XLSX.utils.aoa_to_sheet([
 
     ["Encontrados", dados.encontrados.length],
 
+    ["Desconto aplicado", comDesconto.length],
+
     ["Divergência de valor", dados.divergencias.length],
 
     ["Não encontrados", dados.naoEncontrados.length],
@@ -1874,6 +2308,10 @@ abaResumo["!cols"] = [
 XLSX.utils.json_to_sheet(encontrados);
 
 
+    let abaComDesconto =
+    XLSX.utils.json_to_sheet(comDescontoExport);
+
+
     let abaNaoEncontrados =
     XLSX.utils.json_to_sheet(naoEncontrados);
 
@@ -1889,6 +2327,7 @@ XLSX.utils.json_to_sheet(encontrados);
 
     abaDivergencias["!cols"] = [
         {wch:15},
+        {wch:26},
         {wch:18},
         {wch:18},
         {wch:15},
@@ -1897,26 +2336,34 @@ XLSX.utils.json_to_sheet(encontrados);
 
     abaEncontrados["!cols"] = [
     {wch:18},
+    {wch:26},
     {wch:18},
     {wch:18},
     {wch:12}
 ];
 
+    abaComDesconto["!cols"] = [
+        {wch:15},
+        {wch:26},
+        {wch:12},
+        {wch:18},
+        {wch:22},
+        {wch:18},
+        {wch:15},
+        {wch:12}
+    ];
+
     abaNaoEncontrados["!cols"] = [
         {wch:18},
+        {wch:26},
         {wch:18}
     ];
 
 
 
-    // Formatação de moeda
+    // Formatação de moeda (Divergências: C, D, E valores | F percentual)
 
     for(let linha = 1; linha <= dados.divergencias.length; linha++){
-
-        abaDivergencias[
-            "B" + (linha+1)
-        ].z = '"R$" #,##0.00';
-
 
         abaDivergencias[
             "C" + (linha+1)
@@ -1930,21 +2377,20 @@ XLSX.utils.json_to_sheet(encontrados);
 
         abaDivergencias[
             "E" + (linha+1)
+        ].z = '"R$" #,##0.00';
+
+
+        abaDivergencias[
+            "F" + (linha+1)
         ].z = '0.00%';
 
     }
 
 
 
-    // Moeda encontrados
+    // Moeda encontrados (C, D)
 
     for(let linha = 1; linha <= dados.encontrados.length; linha++){
-
-        if(abaEncontrados["B"+(linha+1)]){
-
-            abaEncontrados["B"+(linha+1)].z = '"R$" #,##0.00';
-
-        }
 
         if(abaEncontrados["C"+(linha+1)]){
 
@@ -1952,20 +2398,41 @@ XLSX.utils.json_to_sheet(encontrados);
 
         }
 
+        if(abaEncontrados["D"+(linha+1)]){
+
+            abaEncontrados["D"+(linha+1)].z = '"R$" #,##0.00';
+
+        }
+
     }
 
 
 
-    // Moeda não encontrados
+    // Desconto aplicado (C percentual, D/E/F valores, G valor, H percentual)
+
+    for(let linha = 1; linha <= comDesconto.length; linha++){
+
+        if(abaComDesconto["C"+(linha+1)]) abaComDesconto["C"+(linha+1)].z = '0.00%';
+        if(abaComDesconto["D"+(linha+1)]) abaComDesconto["D"+(linha+1)].z = '"R$" #,##0.00';
+        if(abaComDesconto["E"+(linha+1)]) abaComDesconto["E"+(linha+1)].z = '"R$" #,##0.00';
+        if(abaComDesconto["F"+(linha+1)]) abaComDesconto["F"+(linha+1)].z = '"R$" #,##0.00';
+        if(abaComDesconto["G"+(linha+1)]) abaComDesconto["G"+(linha+1)].z = '"R$" #,##0.00';
+        if(abaComDesconto["H"+(linha+1)]) abaComDesconto["H"+(linha+1)].z = '0.00%';
+
+    }
+
+
+
+    // Moeda não encontrados (C)
 
     for(let linha = 1; linha <= dados.naoEncontrados.length; linha++){
 
         if(
-            abaNaoEncontrados["B"+(linha+1)]
+            abaNaoEncontrados["C"+(linha+1)]
         ){
 
             abaNaoEncontrados[
-                "B"+(linha+1)
+                "C"+(linha+1)
             ].z = '"R$" #,##0.00';
 
         }
@@ -1977,12 +2444,17 @@ XLSX.utils.json_to_sheet(encontrados);
     // Filtros
 
     abaDivergencias["!autofilter"] = {
-        ref:"A1:E" + (dados.divergencias.length+1)
+        ref:"A1:F" + (dados.divergencias.length+1)
+    };
+
+
+    abaComDesconto["!autofilter"] = {
+        ref:"A1:H" + (comDesconto.length+1)
     };
 
 
     abaNaoEncontrados["!autofilter"] = {
-        ref:"A1:B" + (dados.naoEncontrados.length+1)
+        ref:"A1:C" + (dados.naoEncontrados.length+1)
     };
 
 XLSX.utils.book_append_sheet(
@@ -1995,6 +2467,13 @@ XLSX.utils.book_append_sheet(
         workbook,
         abaResumo,
         "Resumo"
+    );
+
+
+    XLSX.utils.book_append_sheet(
+        workbook,
+        abaComDesconto,
+        "Desconto Aplicado"
     );
 
 
