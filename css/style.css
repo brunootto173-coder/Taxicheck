@@ -507,6 +507,74 @@ table{
 }
 
 
+/* Badges de status na tabela de resultado */
+
+.badge{
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.badge-sucesso{
+    background: var(--cor-sucesso-bg);
+    color: var(--cor-sucesso);
+}
+
+.badge-alerta{
+    background: var(--cor-alerta-bg);
+    color: var(--cor-alerta);
+}
+
+.badge-erro{
+    background: var(--cor-erro-bg);
+    color: var(--cor-erro);
+}
+
+
+/* Controles de filtro + busca acima da tabela de resultado */
+
+.tabela-controles{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.filtro-grupo{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.filtro-grupo .botao-secundario{
+    padding: 8px 14px;
+    font-size: 13px;
+}
+
+.campo-busca{
+    margin: 0;
+    max-width: 260px;
+    min-width: 200px;
+}
+
+tr.linha-nao-encontrado td{
+    background: var(--cor-erro-bg);
+}
+
+tr.linha-divergencia td{
+    background: var(--cor-alerta-bg);
+}
+
+tr.linha-ok td{
+    background: transparent;
+}
+
+
 /* Mensagens de status simples (planilhas carregadas etc.) */
 
 .status-info{

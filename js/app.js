@@ -1274,8 +1274,7 @@ const tolerancia = (window.configUsuario && typeof window.configUsuario.toleranc
     conferencia.forEach(linhaConf => {
 
 
-       let encontrado = false;
-let divergencia = null;
+       let resultadoLinha = null;
 
 
 referencia.forEach(linhaRef => {
@@ -1308,21 +1307,24 @@ referencia.forEach(linhaRef => {
 
         if(diferenca <= tolerancia){
 
-            encontrado = true;
+            resultadoLinha = {
 
-        }else{
-
-            divergencia = {
-
-                chamado:
-                linhaConf[colunaNumeroConf],
-
+                tipo: "encontrado",
                 valorReferencia,
-
                 valorConferencia,
-
                 diferenca,
+                percentual
 
+            };
+
+        }else if(!resultadoLinha || resultadoLinha.tipo !== "encontrado"){
+
+            resultadoLinha = {
+
+                tipo: "divergente",
+                valorReferencia,
+                valorConferencia,
+                diferenca,
                 percentual
 
             };
@@ -1336,19 +1338,28 @@ referencia.forEach(linhaRef => {
 
 
 
-if(encontrado){
-
-    encontrados.push(linhaConf);
+let chamado = linhaConf[colunaNumeroConf];
 
 
-}else if(divergencia){
+if(resultadoLinha && resultadoLinha.tipo === "encontrado"){
 
-    divergenciasValor.push(divergencia);
+    encontrados.push(Object.assign({chamado}, resultadoLinha));
+
+
+}else if(resultadoLinha && resultadoLinha.tipo === "divergente"){
+
+    divergenciasValor.push(Object.assign({chamado}, resultadoLinha));
 
 
 }else{
 
-    naoEncontrados.push(linhaConf);
+    naoEncontrados.push({
+
+        chamado,
+
+        valorConferencia: normalizarValor(linhaConf[colunaValorConf])
+
+    });
 
 }
 
@@ -1361,23 +1372,11 @@ if(encontrado){
 
     total: conferencia.length,
 
-    encontrados: encontrados.map(item => ({
-
-        chamado: item[colunaNumeroConf],
-
-        valor: normalizarValor(item[colunaValorConf])
-
-    })),
+    encontrados: encontrados,
 
     divergencias: divergenciasValor,
 
-    naoEncontrados: naoEncontrados.map(item => ({
-
-        chamado: item[colunaNumeroConf],
-
-        valor: normalizarValor(item[colunaValorConf])
-
-    }))
+    naoEncontrados: naoEncontrados
 
 };
 
@@ -1427,10 +1426,200 @@ function salvarHistorico(dados){
 
 
 
+function montarLinhasResultado(encontrados, divergencias, naoEncontrados){
+
+    let linhas = [];
+
+    encontrados.forEach(function(item){
+
+        linhas.push({
+
+            chamado: item.chamado,
+            valorReferencia: item.valorReferencia,
+            valorConferencia: item.valorConferencia,
+            diferenca: item.diferenca,
+            percentual: item.percentual,
+            status: "ok"
+
+        });
+
+    });
+
+    divergencias.forEach(function(item){
+
+        linhas.push({
+
+            chamado: item.chamado,
+            valorReferencia: item.valorReferencia,
+            valorConferencia: item.valorConferencia,
+            diferenca: item.diferenca,
+            percentual: item.percentual,
+            status: "divergencia"
+
+        });
+
+    });
+
+    naoEncontrados.forEach(function(item){
+
+        linhas.push({
+
+            chamado: item.chamado,
+            valorReferencia: null,
+            valorConferencia: item.valorConferencia !== undefined ? item.valorConferencia : item.valor,
+            diferenca: null,
+            percentual: null,
+            status: "nao-encontrado"
+
+        });
+
+    });
+
+    return linhas;
+
+}
+
+
+
+function badgeStatus(status){
+
+    if(status === "ok"){
+
+        return '<span class="badge badge-sucesso">Encontrado</span>';
+
+    }
+
+    if(status === "divergencia"){
+
+        return '<span class="badge badge-alerta">Divergência</span>';
+
+    }
+
+    return '<span class="badge badge-erro">Não encontrado</span>';
+
+}
+
+
+
+function filtrarResultado(status){
+
+    window.filtroResultadoAtual = status;
+
+    let mapaId = {
+
+        "todos": "filtroTodos",
+        "ok": "filtroOk",
+        "divergencia": "filtroDivergencia",
+        "nao-encontrado": "filtroNaoEncontrado"
+
+    };
+
+    Object.keys(mapaId).forEach(function(chave){
+
+        let el = document.getElementById(mapaId[chave]);
+
+        if(el){
+
+            el.classList.toggle("botao-selecionado", chave === status);
+
+        }
+
+    });
+
+    renderizarTabelaResultado();
+
+}
+
+
+
+function pesquisarResultado(texto){
+
+    window.pesquisaResultadoAtual = texto.trim().toLowerCase();
+
+    renderizarTabelaResultado();
+
+}
+
+
+
+function renderizarTabelaResultado(){
+
+    let linhas = window.linhasResultadoAtual || [];
+
+    let filtro = window.filtroResultadoAtual || "todos";
+    let pesquisa = window.pesquisaResultadoAtual || "";
+
+    let filtradas = linhas.filter(function(l){
+
+        if(filtro !== "todos" && l.status !== filtro){
+
+            return false;
+
+        }
+
+        if(pesquisa && l.chamado.toString().toLowerCase().indexOf(pesquisa) === -1){
+
+            return false;
+
+        }
+
+        return true;
+
+    });
+
+    let corpo = document.getElementById("corpoTabelaResultado");
+    let mensagemVazia = document.getElementById("mensagemTabelaVazia");
+
+    if(!corpo){
+
+        return;
+
+    }
+
+    if(filtradas.length === 0){
+
+        corpo.innerHTML = "";
+
+        if(mensagemVazia){
+
+            mensagemVazia.classList.remove("escondido");
+
+        }
+
+        return;
+
+    }
+
+    if(mensagemVazia){
+
+        mensagemVazia.classList.add("escondido");
+
+    }
+
+    corpo.innerHTML = filtradas.map(function(l){
+
+        return `<tr class="linha-${l.status}">
+            <td>${badgeStatus(l.status)}</td>
+            <td>${l.chamado}</td>
+            <td>${l.valorReferencia !== null && l.valorReferencia !== undefined ? formatarMoeda(l.valorReferencia) : "-"}</td>
+            <td>${l.valorConferencia !== null && l.valorConferencia !== undefined ? formatarMoeda(l.valorConferencia) : "-"}</td>
+            <td>${l.diferenca !== null && l.diferenca !== undefined ? formatarMoeda(l.diferenca) : "-"}</td>
+            <td>${l.percentual !== null && l.percentual !== undefined ? formatarPercentual(l.percentual) : "-"}</td>
+        </tr>`;
+
+    }).join("");
+
+}
+
+
+
 function mostrarResultado(total, encontrados, divergenciasValor, naoEncontrados, destino){
 
     destino = destino || "resultadoComparacao";
 
+    window.linhasResultadoAtual = montarLinhasResultado(encontrados, divergenciasValor, naoEncontrados);
+    window.filtroResultadoAtual = "todos";
+    window.pesquisaResultadoAtual = "";
 
     let html = `
 
@@ -1462,105 +1651,73 @@ function mostrarResultado(total, encontrados, divergenciasValor, naoEncontrados,
 
     </div>
 
-    `;
+    <div class="tabela-card">
 
+        <div class="tabela-controles">
 
+            <div class="filtro-grupo">
 
-    if(divergenciasValor.length > 0){
+                <button class="botao-secundario botao-selecionado" id="filtroTodos" onclick="filtrarResultado('todos')">
+                    Todos (${window.linhasResultadoAtual.length})
+                </button>
 
+                <button class="botao-secundario" id="filtroOk" onclick="filtrarResultado('ok')">
+                    Encontrados (${encontrados.length})
+                </button>
 
-        html += `
+                <button class="botao-secundario" id="filtroDivergencia" onclick="filtrarResultado('divergencia')">
+                    Divergência (${divergenciasValor.length})
+                </button>
 
-        <div class="tabela-card">
+                <button class="botao-secundario" id="filtroNaoEncontrado" onclick="filtrarResultado('nao-encontrado')">
+                    Não encontrados (${naoEncontrados.length})
+                </button>
 
-        <h3>Divergências de valor</h3>
+            </div>
 
+            <input
+                class="campo campo-busca"
+                type="text"
+                id="pesquisaChamado"
+                placeholder="Buscar por número do chamado..."
+                oninput="pesquisarResultado(this.value)">
+
+        </div>
 
         <table>
 
         <thead>
-
         <tr>
+            <th>Status</th>
             <th>Chamado</th>
             <th>Referência</th>
             <th>Conferência</th>
             <th>Diferença</th>
             <th>%</th>
         </tr>
-
         </thead>
 
-
-        <tbody>
-
-        `;
-
-
-        divergenciasValor.forEach(item=>{
-
-
-            html += `
-
-            <tr>
-
-            <td>${item.chamado}</td>
-
-            <td>
-            ${formatarMoeda(item.valorReferencia)}
-            </td>
-
-
-            <td>
-            ${formatarMoeda(item.valorConferencia)}
-            </td>
-
-
-            <td>
-            ${formatarMoeda(item.diferenca)}
-            </td>
-
-
-            <td>
-            ${formatarPercentual(item.percentual)}
-            </td>
-
-
-            </tr>
-
-
-            `;
-
-
-        });
-
-
-
-        html += `
-
+        <tbody id="corpoTabelaResultado">
         </tbody>
 
         </table>
 
-        </div>
+        <p id="mensagemTabelaVazia" class="secao-desc escondido" style="margin-top:14px;">
+            Nenhum resultado para esse filtro/pesquisa.
+        </p>
 
-        `;
+    </div>
 
+    <button class="botao-secundario" onclick="exportarExcel()">
+        Exportar Excel
+    </button>
 
-    }
+    `;
 
+    document.getElementById(destino)
+    .innerHTML = html;
 
-
-    html += `
-
-<button class="botao-secundario" onclick="exportarExcel()">
-    Exportar Excel
-</button>
-
-`;
-
-document.getElementById(destino)
-.innerHTML = html;
-
+    renderizarTabelaResultado();
 
 }
 
@@ -1660,7 +1817,9 @@ let encontrados = dados.encontrados.map(item => ({
 
     "Chamado": item.chamado,
 
-    "Valor": item.valor,
+    "Valor Referência": item.valorReferencia !== undefined ? item.valorReferencia : "",
+
+    "Valor Conferência": item.valorConferencia !== undefined ? item.valorConferencia : item.valor,
 
     "Status": "OK"
 
@@ -1670,7 +1829,7 @@ let encontrados = dados.encontrados.map(item => ({
 
     "Chamado": item.chamado,
 
-    "Valor": item.valor
+    "Valor": item.valorConferencia !== undefined ? item.valorConferencia : item.valor
 
 }));
 
@@ -1739,6 +1898,7 @@ XLSX.utils.json_to_sheet(encontrados);
     abaEncontrados["!cols"] = [
     {wch:18},
     {wch:18},
+    {wch:18},
     {wch:12}
 ];
 
@@ -1771,6 +1931,26 @@ XLSX.utils.json_to_sheet(encontrados);
         abaDivergencias[
             "E" + (linha+1)
         ].z = '0.00%';
+
+    }
+
+
+
+    // Moeda encontrados
+
+    for(let linha = 1; linha <= dados.encontrados.length; linha++){
+
+        if(abaEncontrados["B"+(linha+1)]){
+
+            abaEncontrados["B"+(linha+1)].z = '"R$" #,##0.00';
+
+        }
+
+        if(abaEncontrados["C"+(linha+1)]){
+
+            abaEncontrados["C"+(linha+1)].z = '"R$" #,##0.00';
+
+        }
 
     }
 
