@@ -76,7 +76,14 @@ function carregarClientes(uid){
 
             let d = doc.data();
 
-            return { id: doc.id, nome: d.nome, desconto: d.desconto };
+            return {
+
+                id: doc.id,
+                nome: d.nome,
+                desconto: d.desconto,
+                valorMinimo: (d.valorMinimo === undefined ? null : d.valorMinimo)
+
+            };
 
         });
 
@@ -93,7 +100,7 @@ function carregarClientes(uid){
 
 
 
-function buscarDescontoCliente(nomeCliente){
+function buscarClienteCadastrado(nomeCliente){
 
     if(!nomeCliente || !window.clientesUsuario || !window.clientesUsuario.length){
 
@@ -103,13 +110,35 @@ function buscarDescontoCliente(nomeCliente){
 
     let alvo = normalizarNomeCliente(nomeCliente);
 
-    let encontrado = window.clientesUsuario.find(function(c){
+    return window.clientesUsuario.find(function(c){
 
         return normalizarNomeCliente(c.nome) === alvo;
 
-    });
+    }) || null;
 
-    return encontrado ? encontrado.desconto : null;
+}
+
+
+
+function buscarDescontoCliente(nomeCliente){
+
+    let cliente = buscarClienteCadastrado(nomeCliente);
+
+    return (cliente && cliente.desconto !== undefined && cliente.desconto !== null)
+        ? cliente.desconto
+        : null;
+
+}
+
+
+
+function buscarValorMinimoCliente(nomeCliente){
+
+    let cliente = buscarClienteCadastrado(nomeCliente);
+
+    return (cliente && cliente.valorMinimo !== undefined && cliente.valorMinimo !== null)
+        ? cliente.valorMinimo
+        : null;
 
 }
 
@@ -379,6 +408,7 @@ function verDetalheHistorico(id){
         let d = doc.data();
 
         let comDesconto = d.comDesconto || [];
+        let comValorMinimo = d.comValorMinimo || [];
 
         window.resultadoTaxiCheck = {
 
@@ -387,6 +417,8 @@ function verDetalheHistorico(id){
             encontrados: d.encontrados,
 
             comDesconto: comDesconto,
+
+            comValorMinimo: comValorMinimo,
 
             divergencias: d.divergencias,
 
@@ -417,6 +449,7 @@ function verDetalheHistorico(id){
             d.total,
             d.encontrados,
             comDesconto,
+            comValorMinimo,
             d.divergencias,
             d.naoEncontrados
         );
@@ -751,8 +784,8 @@ function clientes(){
     <div class="secao-titulo">
         <h2>Clientes e Descontos</h2>
         <p class="secao-desc">
-            Cadastre aqui os clientes que têm desconto fixo. Na hora de comparar, se a diferença de valor bater
-            certinho com o desconto do cliente, o TaxiCheck já reconhece como correto em vez de marcar como divergência.
+            Cadastre aqui os clientes que têm desconto fixo e/ou tarifa mínima. Na hora de comparar, se a diferença de
+            valor bater certinho com uma dessas regras, o TaxiCheck já reconhece como correto em vez de marcar como divergência.
         </p>
     </div>
 
@@ -763,8 +796,15 @@ function clientes(){
         <label class="upload-label">Nome do cliente (exatamente como aparece na planilha)</label>
         <input class="campo" type="text" id="novoClienteNome" placeholder="Ex: Empresa XPTO Ltda">
 
-        <label class="upload-label">Desconto (%)</label>
+        <label class="upload-label">Desconto (%) — deixe em branco se não tiver</label>
         <input class="campo" type="number" id="novoClienteDesconto" min="0" max="100" step="0.01" placeholder="Ex: 10">
+
+        <label class="upload-label">Valor mínimo da corrida (R$) — deixe em branco se não tiver</label>
+        <input class="campo" type="number" id="novoClienteValorMinimo" min="0" step="0.01" placeholder="Ex: 15">
+
+        <p class="secao-desc" style="margin-top:-8px;">
+            Use o valor mínimo quando esse cliente sempre paga pelo menos um valor fixo, mesmo se a corrida de referência for mais barata.
+        </p>
 
         <button class="botao-primario" onclick="adicionarCliente()">
             Adicionar cliente
@@ -807,7 +847,14 @@ function carregarListaClientes(){
 
             let d = doc.data();
 
-            lista.push({ id: doc.id, nome: d.nome, desconto: d.desconto });
+            lista.push({
+
+                id: doc.id,
+                nome: d.nome,
+                desconto: (d.desconto === undefined ? null : d.desconto),
+                valorMinimo: (d.valorMinimo === undefined ? null : d.valorMinimo)
+
+            });
 
         });
 
@@ -817,11 +864,7 @@ function carregarListaClientes(){
 
         });
 
-        window.clientesUsuario = lista.map(function(c){
-
-            return { id: c.id, nome: c.nome, desconto: c.desconto };
-
-        });
+        window.clientesUsuario = lista;
 
         if(lista.length === 0){
 
@@ -844,6 +887,7 @@ function carregarListaClientes(){
         <tr>
             <th>Cliente</th>
             <th>Desconto</th>
+            <th>Valor mínimo</th>
             <th></th>
         </tr>
         </thead>
@@ -857,7 +901,8 @@ function carregarListaClientes(){
 
             <tr>
                 <td>${c.nome}</td>
-                <td>${formatarPercentual(c.desconto)}</td>
+                <td>${(c.desconto !== null && c.desconto !== undefined) ? formatarPercentual(c.desconto) : "-"}</td>
+                <td>${(c.valorMinimo !== null && c.valorMinimo !== undefined) ? formatarMoeda(c.valorMinimo) : "-"}</td>
                 <td>
                     <button class="botao-secundario" style="border-color: var(--cor-erro); color: var(--cor-erro);" onclick="excluirCliente('${c.id}')">
                         Excluir
@@ -895,7 +940,12 @@ function carregarListaClientes(){
 function adicionarCliente(){
 
     let nome = document.getElementById("novoClienteNome").value.trim();
-    let desconto = parseFloat(document.getElementById("novoClienteDesconto").value);
+
+    let descontoTexto = document.getElementById("novoClienteDesconto").value.trim();
+    let valorMinimoTexto = document.getElementById("novoClienteValorMinimo").value.trim();
+
+    let desconto = descontoTexto === "" ? null : parseFloat(descontoTexto);
+    let valorMinimo = valorMinimoTexto === "" ? null : parseFloat(valorMinimoTexto);
 
     let mensagem = document.getElementById("mensagemCliente");
 
@@ -909,9 +959,25 @@ function adicionarCliente(){
 
     }
 
-    if(isNaN(desconto) || desconto < 0 || desconto > 100){
+    if(desconto !== null && (isNaN(desconto) || desconto < 0 || desconto > 100)){
 
-        mensagem.innerHTML = "Informe um desconto entre 0 e 100";
+        mensagem.innerHTML = "Informe um desconto entre 0 e 100, ou deixe em branco";
+
+        return;
+
+    }
+
+    if(valorMinimo !== null && (isNaN(valorMinimo) || valorMinimo < 0)){
+
+        mensagem.innerHTML = "Informe um valor mínimo válido, ou deixe em branco";
+
+        return;
+
+    }
+
+    if(desconto === null && valorMinimo === null){
+
+        mensagem.innerHTML = "Preencha o desconto e/ou o valor mínimo";
 
         return;
 
@@ -923,7 +989,8 @@ function adicionarCliente(){
 
         uid: uid,
         nome: nome,
-        desconto: desconto
+        desconto: desconto,
+        valorMinimo: valorMinimo
 
     })
     .then(function(){
@@ -933,6 +1000,7 @@ function adicionarCliente(){
 
         document.getElementById("novoClienteNome").value = "";
         document.getElementById("novoClienteDesconto").value = "";
+        document.getElementById("novoClienteValorMinimo").value = "";
 
         carregarListaClientes();
 
@@ -1555,6 +1623,7 @@ function compararDados(){
 
     let encontrados = [];
 let comDesconto = [];
+let comValorMinimo = [];
 let divergenciasValor = [];
 let naoEncontrados = [];
 
@@ -1653,7 +1722,7 @@ referencia.forEach(linhaRef => {
 
             };
 
-        }else if(!resultadoLinha || (resultadoLinha.tipo !== "encontrado" && resultadoLinha.tipo !== "desconto")){
+        }else if(!resultadoLinha || (resultadoLinha.tipo !== "encontrado" && resultadoLinha.tipo !== "desconto" && resultadoLinha.tipo !== "minimo")){
 
             // a diferença pode ser explicada por um desconto
             // cadastrado pra esse cliente — se bater, não é divergência de verdade
@@ -1699,6 +1768,40 @@ referencia.forEach(linhaRef => {
 
             }
 
+            // se o desconto não explicou a diferença, tenta a tarifa mínima:
+            // corridas abaixo do valor mínimo do cliente são cobradas pelo mínimo
+
+            if(resultadoCandidato.tipo === "divergente"){
+
+                let valorMinimo = buscarValorMinimoCliente(cliente);
+
+                if(valorMinimo !== null && valorReferencia < valorMinimo){
+
+                    let diferencaMinimo =
+                    Math.abs(valorMinimo - valorConferencia);
+
+                    if(diferencaMinimo <= tolerancia){
+
+                        resultadoCandidato = {
+
+                            tipo: "minimo",
+                            valorReferencia,
+                            valorConferencia,
+                            valorMinimo,
+                            diferenca: diferencaMinimo,
+                            percentual: valorMinimo > 0
+                                ? (diferencaMinimo / valorMinimo) * 100
+                                : 0,
+                            cliente
+
+                        };
+
+                    }
+
+                }
+
+            }
+
             resultadoLinha = resultadoCandidato;
 
         }
@@ -1721,6 +1824,11 @@ if(resultadoLinha && resultadoLinha.tipo === "encontrado"){
 }else if(resultadoLinha && resultadoLinha.tipo === "desconto"){
 
     comDesconto.push(Object.assign({chamado}, resultadoLinha));
+
+
+}else if(resultadoLinha && resultadoLinha.tipo === "minimo"){
+
+    comValorMinimo.push(Object.assign({chamado}, resultadoLinha));
 
 
 }else if(resultadoLinha && resultadoLinha.tipo === "divergente"){
@@ -1755,6 +1863,8 @@ if(resultadoLinha && resultadoLinha.tipo === "encontrado"){
 
     comDesconto: comDesconto,
 
+    comValorMinimo: comValorMinimo,
+
     divergencias: divergenciasValor,
 
     naoEncontrados: naoEncontrados
@@ -1766,6 +1876,7 @@ mostrarResultado(
     conferencia.length,
     encontrados,
     comDesconto,
+    comValorMinimo,
     divergenciasValor,
     naoEncontrados
 );
@@ -1794,6 +1905,8 @@ function salvarHistorico(dados){
 
         comDesconto: dados.comDesconto || [],
 
+        comValorMinimo: dados.comValorMinimo || [],
+
         divergencias: dados.divergencias,
 
         naoEncontrados: dados.naoEncontrados
@@ -1810,7 +1923,7 @@ function salvarHistorico(dados){
 
 
 
-function montarLinhasResultado(encontrados, comDesconto, divergencias, naoEncontrados){
+function montarLinhasResultado(encontrados, comDesconto, comValorMinimo, divergencias, naoEncontrados){
 
     let linhas = [];
 
@@ -1825,6 +1938,7 @@ function montarLinhasResultado(encontrados, comDesconto, divergencias, naoEncont
             diferenca: item.diferenca,
             percentual: item.percentual,
             desconto: null,
+            valorMinimo: null,
             status: "ok"
 
         });
@@ -1842,7 +1956,26 @@ function montarLinhasResultado(encontrados, comDesconto, divergencias, naoEncont
             diferenca: item.diferenca,
             percentual: item.percentual,
             desconto: item.desconto,
+            valorMinimo: null,
             status: "desconto"
+
+        });
+
+    });
+
+    comValorMinimo.forEach(function(item){
+
+        linhas.push({
+
+            chamado: item.chamado,
+            cliente: item.cliente || null,
+            valorReferencia: item.valorReferencia,
+            valorConferencia: item.valorConferencia,
+            diferenca: item.diferenca,
+            percentual: item.percentual,
+            desconto: null,
+            valorMinimo: item.valorMinimo,
+            status: "minimo"
 
         });
 
@@ -1859,6 +1992,7 @@ function montarLinhasResultado(encontrados, comDesconto, divergencias, naoEncont
             diferenca: item.diferenca,
             percentual: item.percentual,
             desconto: null,
+            valorMinimo: null,
             status: "divergencia"
 
         });
@@ -1876,6 +2010,7 @@ function montarLinhasResultado(encontrados, comDesconto, divergencias, naoEncont
             diferenca: null,
             percentual: null,
             desconto: null,
+            valorMinimo: null,
             status: "nao-encontrado"
 
         });
@@ -1902,6 +2037,12 @@ function badgeStatus(linha){
 
     }
 
+    if(linha.status === "minimo"){
+
+        return `<span class="badge badge-info">Tarifa mínima ${formatarMoeda(linha.valorMinimo)}</span>`;
+
+    }
+
     if(linha.status === "divergencia"){
 
         return '<span class="badge badge-alerta">Divergência</span>';
@@ -1923,6 +2064,7 @@ function filtrarResultado(status){
         "todos": "filtroTodos",
         "ok": "filtroOk",
         "desconto": "filtroDesconto",
+        "minimo": "filtroMinimo",
         "divergencia": "filtroDivergencia",
         "nao-encontrado": "filtroNaoEncontrado"
 
@@ -2034,11 +2176,11 @@ function renderizarTabelaResultado(){
 
 
 
-function mostrarResultado(total, encontrados, comDesconto, divergenciasValor, naoEncontrados, destino){
+function mostrarResultado(total, encontrados, comDesconto, comValorMinimo, divergenciasValor, naoEncontrados, destino){
 
     destino = destino || "resultadoComparacao";
 
-    window.linhasResultadoAtual = montarLinhasResultado(encontrados, comDesconto, divergenciasValor, naoEncontrados);
+    window.linhasResultadoAtual = montarLinhasResultado(encontrados, comDesconto, comValorMinimo, divergenciasValor, naoEncontrados);
     window.filtroResultadoAtual = "todos";
     window.pesquisaResultadoAtual = "";
 
@@ -2063,6 +2205,11 @@ function mostrarResultado(total, encontrados, comDesconto, divergenciasValor, na
         <div class="stat-card stat-info">
             <span class="stat-label">Desconto aplicado</span>
             <span class="stat-valor">${comDesconto.length}</span>
+        </div>
+
+        <div class="stat-card stat-info">
+            <span class="stat-label">Tarifa mínima</span>
+            <span class="stat-valor">${comValorMinimo.length}</span>
         </div>
 
         <div class="stat-card stat-alerta">
@@ -2093,6 +2240,10 @@ function mostrarResultado(total, encontrados, comDesconto, divergenciasValor, na
 
                 <button class="botao-secundario" id="filtroDesconto" onclick="filtrarResultado('desconto')">
                     Desconto aplicado (${comDesconto.length})
+                </button>
+
+                <button class="botao-secundario" id="filtroMinimo" onclick="filtrarResultado('minimo')">
+                    Tarifa mínima (${comValorMinimo.length})
                 </button>
 
                 <button class="botao-secundario" id="filtroDivergencia" onclick="filtrarResultado('divergencia')">
@@ -2203,6 +2354,7 @@ function exportarExcel(){
 
     let dados = window.resultadoTaxiCheck;
     let comDesconto = dados.comDesconto || [];
+    let comValorMinimo = dados.comValorMinimo || [];
 
 
     let divergencias = dados.divergencias.map(item => ({
@@ -2255,6 +2407,24 @@ let encontrados = dados.encontrados.map(item => ({
 
     }));
 
+    let comValorMinimoExport = comValorMinimo.map(item => ({
+
+        "Chamado": item.chamado,
+
+        "Cliente": item.cliente || "",
+
+        "Valor Referência": item.valorReferencia,
+
+        "Tarifa Mínima": item.valorMinimo,
+
+        "Valor Conferência": item.valorConferencia,
+
+        "Diferença": item.diferenca,
+
+        "Percentual": item.percentual / 100
+
+    }));
+
     let naoEncontrados = dados.naoEncontrados.map(item => ({
 
     "Chamado": item.chamado,
@@ -2286,6 +2456,8 @@ XLSX.utils.aoa_to_sheet([
 
     ["Desconto aplicado", comDesconto.length],
 
+    ["Tarifa mínima aplicada", comValorMinimo.length],
+
     ["Divergência de valor", dados.divergencias.length],
 
     ["Não encontrados", dados.naoEncontrados.length],
@@ -2310,6 +2482,10 @@ XLSX.utils.json_to_sheet(encontrados);
 
     let abaComDesconto =
     XLSX.utils.json_to_sheet(comDescontoExport);
+
+
+    let abaComValorMinimo =
+    XLSX.utils.json_to_sheet(comValorMinimoExport);
 
 
     let abaNaoEncontrados =
@@ -2348,6 +2524,16 @@ XLSX.utils.json_to_sheet(encontrados);
         {wch:12},
         {wch:18},
         {wch:22},
+        {wch:18},
+        {wch:15},
+        {wch:12}
+    ];
+
+    abaComValorMinimo["!cols"] = [
+        {wch:15},
+        {wch:26},
+        {wch:18},
+        {wch:16},
         {wch:18},
         {wch:15},
         {wch:12}
@@ -2423,6 +2609,20 @@ XLSX.utils.json_to_sheet(encontrados);
 
 
 
+    // Tarifa mínima aplicada (C/D/E valores, F valor, G percentual)
+
+    for(let linha = 1; linha <= comValorMinimo.length; linha++){
+
+        if(abaComValorMinimo["C"+(linha+1)]) abaComValorMinimo["C"+(linha+1)].z = '"R$" #,##0.00';
+        if(abaComValorMinimo["D"+(linha+1)]) abaComValorMinimo["D"+(linha+1)].z = '"R$" #,##0.00';
+        if(abaComValorMinimo["E"+(linha+1)]) abaComValorMinimo["E"+(linha+1)].z = '"R$" #,##0.00';
+        if(abaComValorMinimo["F"+(linha+1)]) abaComValorMinimo["F"+(linha+1)].z = '"R$" #,##0.00';
+        if(abaComValorMinimo["G"+(linha+1)]) abaComValorMinimo["G"+(linha+1)].z = '0.00%';
+
+    }
+
+
+
     // Moeda não encontrados (C)
 
     for(let linha = 1; linha <= dados.naoEncontrados.length; linha++){
@@ -2453,6 +2653,11 @@ XLSX.utils.json_to_sheet(encontrados);
     };
 
 
+    abaComValorMinimo["!autofilter"] = {
+        ref:"A1:G" + (comValorMinimo.length+1)
+    };
+
+
     abaNaoEncontrados["!autofilter"] = {
         ref:"A1:C" + (dados.naoEncontrados.length+1)
     };
@@ -2474,6 +2679,13 @@ XLSX.utils.book_append_sheet(
         workbook,
         abaComDesconto,
         "Desconto Aplicado"
+    );
+
+
+    XLSX.utils.book_append_sheet(
+        workbook,
+        abaComValorMinimo,
+        "Tarifa Mínima"
     );
 
 
