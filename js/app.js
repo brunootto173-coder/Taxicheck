@@ -2218,6 +2218,14 @@ function renderizarTabelaResultado(){
     corpo.innerHTML = filtradas.map(function(l){
 
         return `<tr class="linha-${l.status}">
+            <td class="celula-check">
+                <input
+                    type="checkbox"
+                    class="check-conferido"
+                    data-chamado="${l.chamado}"
+                    ${l.conferido ? "checked" : ""}
+                    onchange="marcarConferido(this)">
+            </td>
             <td>${badgeStatus(l)}</td>
             <td>${l.chamado}</td>
             <td>${l.cliente || "-"}</td>
@@ -2228,6 +2236,69 @@ function renderizarTabelaResultado(){
         </tr>`;
 
     }).join("");
+
+    atualizarProgressoConferido();
+
+}
+
+
+
+function atualizarProgressoConferido(){
+
+    let progresso = document.getElementById("progressoConferido");
+
+    if(!progresso){
+
+        return;
+
+    }
+
+    let linhas = window.linhasResultadoAtual || [];
+
+    let total = linhas.length;
+    let feitas = linhas.filter(function(l){ return l.conferido; }).length;
+
+    progresso.innerHTML = `${feitas} de ${total} conferidas`;
+
+}
+
+
+
+function marcarConferido(checkbox){
+
+    let chamado = checkbox.dataset.chamado;
+    let valor = checkbox.checked;
+
+    (window.linhasResultadoAtual || []).forEach(function(l){
+
+        if(String(l.chamado) === String(chamado)){
+
+            l.conferido = valor;
+
+        }
+
+    });
+
+    window.conferidosAtual = window.conferidosAtual || {};
+    window.conferidosAtual[String(chamado)] = valor;
+
+    atualizarProgressoConferido();
+
+    if(!window.idHistoricoAtual){
+
+        return;
+
+    }
+
+    let campoAtualizado = {};
+    campoAtualizado["conferidos." + String(chamado)] = valor;
+
+    db.collection("historico").doc(window.idHistoricoAtual).update(campoAtualizado)
+    .catch(function(erro){
+
+        console.error("Erro ao salvar marcação de conferido:", erro);
+
+    });
 
 }
 
@@ -2320,12 +2391,15 @@ function mostrarResultado(total, encontrados, comDesconto, comValorMinimo, diver
                 placeholder="Buscar por chamado ou cliente..."
                 oninput="pesquisarResultado(this.value)">
 
+            <span id="progressoConferido" class="secao-desc" style="white-space:nowrap;"></span>
+
         </div>
 
         <table>
 
         <thead>
         <tr>
+            <th>Conferido</th>
             <th>Status</th>
             <th>Chamado</th>
             <th>Cliente</th>
