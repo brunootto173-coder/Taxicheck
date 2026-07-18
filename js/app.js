@@ -1725,7 +1725,7 @@ referencia.forEach(linhaRef => {
 
 
         let percentual =
-        (diferenca / valorReferencia) * 100;
+        valorReferencia > 0 ? (diferenca / valorReferencia) * 100 : 0;
 
 
         let cliente = colunaClienteConf
@@ -2396,6 +2396,28 @@ function formatarPercentual(valor){
         maximumFractionDigits: 2
     }) + "%";
 
+}
+
+
+function formatarDataBR(data){
+
+    if(!data) return "-";
+
+    if(data.toDate){
+        data = data.toDate();
+    }else if(typeof data === "string"){
+        const partes = data.split("-");
+        if(partes.length === 3){
+            return `${partes[2]}/${partes[1]}/${partes[0]}`;
+        }
+        data = new Date(data);
+    }else{
+        data = new Date(data);
+    }
+
+    if(isNaN(data.getTime())) return "-";
+
+    return data.toLocaleDateString("pt-BR");
 }
 
 function exportarExcel(){
