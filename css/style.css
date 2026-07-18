@@ -73,6 +73,65 @@ h1, h2, h3{
 
 
 /* =========================================================
+   ANIMAÇÕES — usadas em telas, cards, tabelas e feedback
+   ========================================================= */
+
+@keyframes entrarSubindo{
+    from{ opacity: 0; transform: translateY(10px); }
+    to{ opacity: 1; transform: translateY(0); }
+}
+
+@keyframes entrarEscala{
+    from{ opacity: 0; transform: translateY(8px) scale(0.98); }
+    to{ opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes surgir{
+    from{ opacity: 0; }
+    to{ opacity: 1; }
+}
+
+@keyframes girar{
+    to{ transform: rotate(360deg); }
+}
+
+@keyframes tremer{
+    10%, 90% { transform: translateX(-1px); }
+    20%, 80% { transform: translateX(2px); }
+    30%, 50%, 70% { transform: translateX(-4px); }
+    40%, 60% { transform: translateX(4px); }
+}
+
+@keyframes pulsarAcento{
+    0%, 100%{ box-shadow: 0 0 0 0 rgba(232,163,61,0.35); }
+    50%{ box-shadow: 0 0 0 4px rgba(232,163,61,0); }
+}
+
+.anim-tremer{
+    animation: tremer 0.4s ease;
+}
+
+.spinner{
+    width: 22px;
+    height: 22px;
+    margin: 4px auto;
+    border: 3px solid var(--cor-borda);
+    border-top-color: var(--cor-primaria);
+    border-radius: 50%;
+    animation: girar 0.7s linear infinite;
+}
+
+.carregando-bloco{
+    text-align: center;
+    padding: 8px 0;
+}
+
+.carregando-bloco p{
+    margin: 10px 0 0;
+}
+
+
+/* =========================================================
    TELA DE LOGIN — cartão estilo bilhete/ticket
    ========================================================= */
 
@@ -99,6 +158,7 @@ h1, h2, h3{
     padding: 44px 32px 32px;
     text-align: center;
     overflow: hidden;
+    animation: entrarEscala 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* aceno discreto ao táxi: friso quadriculado no topo do bilhete */
@@ -117,6 +177,7 @@ h1, h2, h3{
 
 .logo-login{
     margin-bottom: 14px;
+    animation: entrarSubindo 0.5s ease 0.1s backwards;
 }
 
 .logo-login img{
@@ -128,6 +189,7 @@ h1, h2, h3{
 .ticket-card h1{
     font-size: 23px;
     letter-spacing: -0.01em;
+    animation: entrarSubindo 0.5s ease 0.15s backwards;
 }
 
 .subtitulo{
@@ -135,6 +197,7 @@ h1, h2, h3{
     color: var(--cor-texto-suave);
     font-size: 14px;
     margin: 6px 0 30px;
+    animation: entrarSubindo 0.5s ease 0.2s backwards;
 }
 
 .ticket-card input{
@@ -148,6 +211,11 @@ h1, h2, h3{
     background: var(--cor-fundo);
     color: var(--cor-texto);
     transition: border-color var(--transicao), background var(--transicao), box-shadow var(--transicao);
+    animation: entrarSubindo 0.5s ease 0.25s backwards;
+}
+
+.ticket-card input:nth-of-type(2){
+    animation-delay: 0.3s;
 }
 
 .ticket-card input:hover{
@@ -175,6 +243,7 @@ h1, h2, h3{
     cursor: pointer;
     box-shadow: 0 1px 2px rgba(16,27,45,0.08);
     transition: background var(--transicao), transform var(--transicao), box-shadow var(--transicao);
+    animation: entrarSubindo 0.5s ease 0.35s backwards;
 }
 
 .ticket-card button:hover{
@@ -184,7 +253,7 @@ h1, h2, h3{
 }
 
 .ticket-card button:active{
-    transform: translateY(0);
+    transform: translateY(0) scale(0.98);
 }
 
 .ticket-card button:disabled{
@@ -220,6 +289,7 @@ h1, h2, h3{
     padding: 26px 16px;
     box-shadow: 2px 0 12px rgba(0,0,0,0.08);
     z-index: 1;
+    animation: surgir 0.4s ease;
 }
 
 .sidebar-topo{
@@ -272,8 +342,15 @@ h1, h2, h3{
     font-size: 14px;
     text-align: left;
     cursor: pointer;
-    transition: background var(--transicao), color var(--transicao);
+    transition: background var(--transicao), color var(--transicao), transform var(--transicao);
+    animation: entrarSubindo 0.4s ease backwards;
 }
+
+.sidebar-nav .nav-item:nth-child(1){ animation-delay: 0.04s; }
+.sidebar-nav .nav-item:nth-child(2){ animation-delay: 0.08s; }
+.sidebar-nav .nav-item:nth-child(3){ animation-delay: 0.12s; }
+.sidebar-nav .nav-item:nth-child(4){ animation-delay: 0.16s; }
+.sidebar-nav .nav-item:nth-child(5){ animation-delay: 0.2s; }
 
 .nav-icone{
     font-size: 15px;
@@ -285,6 +362,7 @@ h1, h2, h3{
 .nav-item:hover{
     background: var(--cor-sidebar-hover);
     color: #fff;
+    transform: translateX(2px);
 }
 
 .nav-item.ativo{
@@ -292,7 +370,11 @@ h1, h2, h3{
     color: #fff;
 }
 
-.nav-item.ativo::before{
+.nav-item.ativo:hover{
+    transform: none;
+}
+
+.nav-item::before{
     content: "";
     position: absolute;
     left: 0;
@@ -301,6 +383,14 @@ h1, h2, h3{
     width: 3px;
     border-radius: 3px;
     background: var(--cor-acento);
+    opacity: 0;
+    transform: scaleY(0.4);
+    transition: opacity var(--transicao), transform var(--transicao);
+}
+
+.nav-item.ativo::before{
+    opacity: 1;
+    transform: scaleY(1);
 }
 
 .sidebar-sair{
@@ -323,6 +413,10 @@ h1, h2, h3{
     color: #fff;
 }
 
+.sidebar-sair:active{
+    transform: scale(0.98);
+}
+
 
 /* =========================================================
    CONTEÚDO PRINCIPAL
@@ -333,10 +427,12 @@ h1, h2, h3{
     min-width: 0;
     padding: 36px 44px 64px;
     max-width: 1180px;
+    background-image: radial-gradient(circle at 100% 0%, rgba(27,79,114,0.03), transparent 40%);
 }
 
 .conteudo-topo{
     margin-bottom: 30px;
+    animation: entrarSubindo 0.4s ease;
 }
 
 .eyebrow{
@@ -355,6 +451,7 @@ h1, h2, h3{
 
 .secao-titulo{
     margin-bottom: 22px;
+    animation: entrarSubindo 0.4s ease;
 }
 
 .secao-titulo h2{
@@ -377,6 +474,7 @@ h1, h2, h3{
     grid-template-columns: 1fr 1fr;
     gap: 16px;
     margin-bottom: 20px;
+    animation: entrarSubindo 0.45s ease 0.05s backwards;
 }
 
 .upload-card{
@@ -433,7 +531,7 @@ h1, h2, h3{
 }
 
 .botao-primario:active{
-    transform: translateY(0);
+    transform: translateY(0) scale(0.98);
 }
 
 .botao-secundario{
@@ -447,13 +545,17 @@ h1, h2, h3{
     font-weight: 600;
     font-size: 14px;
     cursor: pointer;
-    transition: border-color var(--transicao), color var(--transicao), background var(--transicao);
+    transition: border-color var(--transicao), color var(--transicao), background var(--transicao), transform var(--transicao);
 }
 
 .botao-secundario:hover{
     border-color: var(--cor-primaria);
     color: var(--cor-primaria);
     background: #FAFCFE;
+}
+
+.botao-secundario:active{
+    transform: scale(0.98);
 }
 
 
@@ -474,7 +576,15 @@ h1, h2, h3{
     padding: 17px 18px;
     box-shadow: var(--sombra);
     transition: transform var(--transicao), box-shadow var(--transicao);
+    animation: entrarSubindo 0.4s ease backwards;
 }
+
+.stats-grid .stat-card:nth-child(1){ animation-delay: 0.03s; }
+.stats-grid .stat-card:nth-child(2){ animation-delay: 0.07s; }
+.stats-grid .stat-card:nth-child(3){ animation-delay: 0.11s; }
+.stats-grid .stat-card:nth-child(4){ animation-delay: 0.15s; }
+.stats-grid .stat-card:nth-child(5){ animation-delay: 0.19s; }
+.stats-grid .stat-card:nth-child(6){ animation-delay: 0.23s; }
 
 .stat-card:hover{
     transform: translateY(-2px);
@@ -512,6 +622,7 @@ h1, h2, h3{
     padding: 22px;
     margin-bottom: 24px;
     box-shadow: var(--sombra);
+    animation: entrarSubindo 0.45s ease 0.08s backwards;
 }
 
 .tabela-card h3{
@@ -541,6 +652,11 @@ th, td{
     height: 17px;
     accent-color: var(--cor-primaria);
     cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.check-conferido:active{
+    transform: scale(1.25);
 }
 
 th{
@@ -633,6 +749,7 @@ table::-webkit-scrollbar-thumb:hover{
     font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
+    animation: entrarEscala 0.25s ease backwards;
 }
 
 .badge-sucesso{
@@ -713,6 +830,7 @@ tr.linha-ok td{
     border-radius: var(--raio);
     padding: 16px 20px;
     margin-bottom: 20px;
+    animation: entrarSubindo 0.4s ease;
 }
 
 .status-info p{

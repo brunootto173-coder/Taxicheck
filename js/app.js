@@ -154,11 +154,15 @@ function entrar(){
 
     let botao = document.querySelector("#loginTela button");
 
+    let cartao = document.querySelector(".ticket-card");
+
     mensagem.innerHTML = "";
 
     if(!email || !senha){
 
         mensagem.innerHTML = "Preencha e-mail e senha";
+
+        tremerCartaoLogin(cartao);
 
         return;
 
@@ -174,6 +178,8 @@ function entrar(){
 
         mensagem.innerHTML = traduzirErroLogin(erro.code);
 
+        tremerCartaoLogin(cartao);
+
     })
     .finally(function(){
 
@@ -182,6 +188,24 @@ function entrar(){
         botao.innerHTML = "Entrar";
 
     });
+
+}
+
+
+
+function tremerCartaoLogin(cartao){
+
+    if(!cartao){
+
+        return;
+
+    }
+
+    cartao.classList.remove("anim-tremer");
+
+    void cartao.offsetWidth;
+
+    cartao.classList.add("anim-tremer");
 
 }
 
@@ -280,7 +304,8 @@ function verHistorico(){
 
     <div id="listaHistorico">
 
-        <div class="status-info">
+        <div class="status-info carregando-bloco">
+            <div class="spinner"></div>
             <p>Carregando...</p>
         </div>
 
@@ -833,7 +858,8 @@ function clientes(){
 
         <h3>Clientes cadastrados</h3>
 
-        <div id="listaClientes">
+        <div id="listaClientes" class="carregando-bloco">
+            <div class="spinner"></div>
             <p class="secao-desc">Carregando...</p>
         </div>
 
@@ -1074,7 +1100,7 @@ function organizarPlanilha(){
         <input type="file" id="arquivoBruto" accept=".xlsx,.xls">
     </label>
 
-    <button class="botao-primario" onclick="processarPlanilhaBruta()">
+    <button class="botao-primario" onclick="processarPlanilhaBruta(this)">
         Organizar Planilha
     </button>
 
@@ -1121,7 +1147,7 @@ function corrigirIntervaloPlanilha(planilha){
 
 
 
-function processarPlanilhaBruta(){
+function processarPlanilhaBruta(botao){
 
     let arquivo = document.getElementById("arquivoBruto").files[0];
 
@@ -1132,6 +1158,25 @@ function processarPlanilhaBruta(){
         return;
 
     }
+
+    if(botao){
+
+        botao.disabled = true;
+
+        botao.dataset.textoOriginal = botao.innerHTML;
+
+        botao.innerHTML = "Processando...";
+
+    }
+
+    document.getElementById("resultadoOrganizar").innerHTML = `
+
+    <div class="status-info carregando-bloco">
+        <div class="spinner"></div>
+        <p>Lendo e organizando a planilha...</p>
+    </div>
+
+    `;
 
     let leitor = new FileReader();
 
@@ -1149,9 +1194,15 @@ function processarPlanilhaBruta(){
 
         let linhas = XLSX.utils.sheet_to_json(planilha, {header: 1, defval: ""});
 
-        console.log("DEBUG - primeiras 15 linhas lidas:", linhas.slice(0, 15));
-
         let resultado = extrairColunasPlanilhaBruta(linhas);
+
+        if(botao){
+
+            botao.disabled = false;
+
+            botao.innerHTML = botao.dataset.textoOriginal;
+
+        }
 
         if(!resultado || !resultado.dados.length){
 
@@ -1403,7 +1454,7 @@ function comparar(){
 
     <br>
 
-    <button class="botao-primario" onclick="iniciarComparacao()">
+    <button class="botao-primario" onclick="iniciarComparacao(this)">
         Iniciar Comparação
     </button>
 
@@ -1415,7 +1466,7 @@ function comparar(){
 
 }
 
-function iniciarComparacao(){
+function iniciarComparacao(botao){
 
     let referencia =
     document.getElementById("arquivoReferencia").files[0];
@@ -1430,6 +1481,16 @@ function iniciarComparacao(){
         alert("Selecione as duas planilhas");
 
         return;
+
+    }
+
+    if(botao){
+
+        botao.disabled = true;
+
+        botao.dataset.textoOriginal = botao.innerHTML;
+
+        botao.innerHTML = "Lendo planilhas...";
 
     }
 
@@ -1508,6 +1569,21 @@ function verificarDadosCarregados(){
    window.planilhaConferencia){
 
 
+    let botaoOriginal = document.querySelector('button[onclick^="iniciarComparacao"]');
+
+    if(botaoOriginal){
+
+        botaoOriginal.disabled = false;
+
+        if(botaoOriginal.dataset.textoOriginal){
+
+            botaoOriginal.innerHTML = botaoOriginal.dataset.textoOriginal;
+
+        }
+
+    }
+
+
     document.getElementById("resultadoComparacao")
     .innerHTML = `
 
@@ -1515,7 +1591,7 @@ function verificarDadosCarregados(){
 
         <p>✓ Planilhas carregadas com sucesso!</p>
 
-        <button class="botao-primario" onclick="compararDados()">
+        <button class="botao-primario" onclick="compararDados(this)">
             Executar Comparação
         </button>
 
@@ -1639,7 +1715,37 @@ function correspondemChamados(valorRef, valorConf){
 
 
 
-function compararDados(){
+function compararDados(botao){
+
+    if(botao){
+
+        botao.disabled = true;
+
+        botao.dataset.textoOriginal = botao.innerHTML;
+
+        botao.innerHTML = "Comparando...";
+
+    }
+
+    setTimeout(function(){
+
+        executarComparacaoReal();
+
+        if(botao){
+
+            botao.disabled = false;
+
+            botao.innerHTML = botao.dataset.textoOriginal;
+
+        }
+
+    }, 30);
+
+}
+
+
+
+function executarComparacaoReal(){
 
     let referencia = window.planilhaReferencia;
     let conferencia = window.planilhaConferencia;
