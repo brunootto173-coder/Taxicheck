@@ -531,6 +531,18 @@ th, td{
     font-size: 13px;
 }
 
+.celula-check{
+    text-align: center;
+    width: 40px;
+}
+
+.check-conferido{
+    width: 17px;
+    height: 17px;
+    accent-color: var(--cor-primaria);
+    cursor: pointer;
+}
+
 th{
     position: sticky;
     top: 0;

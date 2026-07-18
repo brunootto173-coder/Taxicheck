@@ -321,6 +321,7 @@ function verHistorico(){
 
         <tr>
             <th>Data</th>
+            <th>Planilha</th>
             <th>Total</th>
             <th>Encontrados</th>
             <th>Divergência</th>
@@ -342,10 +343,15 @@ function verHistorico(){
                 ? d.dataHora.toDate().toLocaleString("pt-BR")
                 : "-";
 
+            let dataPlanilha = d.dataPlanilha
+                ? formatarDataBR(d.dataPlanilha)
+                : "-";
+
             html += `
 
             <tr>
                 <td>${data}</td>
+                <td>${dataPlanilha}</td>
                 <td>${d.total}</td>
                 <td>${d.encontrados.length}</td>
                 <td>${d.divergencias.length}</td>
@@ -414,6 +420,8 @@ function verDetalheHistorico(id){
 
             total: d.total,
 
+            dataPlanilha: d.dataPlanilha || "",
+
             encontrados: d.encontrados,
 
             comDesconto: comDesconto,
@@ -426,15 +434,22 @@ function verDetalheHistorico(id){
 
         };
 
+        window.conferidosAtual = d.conferidos || {};
+        window.idHistoricoAtual = id;
+
         let data = d.dataHora
             ? d.dataHora.toDate().toLocaleString("pt-BR")
+            : "";
+
+        let dataPlanilhaTexto = d.dataPlanilha
+            ? ` · Planilha referente a ${formatarDataBR(d.dataPlanilha)}`
             : "";
 
         document.getElementById("resultado").innerHTML = `
 
         <div class="secao-titulo">
             <h2>Detalhe da Conferência</h2>
-            <p class="secao-desc">${data}</p>
+            <p class="secao-desc">${data}${dataPlanilhaTexto}</p>
         </div>
 
         <button class="botao-secundario" onclick="verHistorico()" style="margin-bottom:20px;">
@@ -1379,6 +1394,15 @@ function comparar(){
 
     </div>
 
+    <label class="upload-label" for="dataPlanilha">Data da planilha conferida (opcional)</label>
+    <input
+        class="campo"
+        style="max-width:220px;"
+        type="date"
+        id="dataPlanilha">
+
+    <br>
+
     <button class="botao-primario" onclick="iniciarComparacao()">
         Iniciar Comparação
     </button>
@@ -1855,9 +1879,15 @@ if(resultadoLinha && resultadoLinha.tipo === "encontrado"){
 
 
 
+    let campoData = document.getElementById("dataPlanilha");
+    let dataPlanilha = campoData ? campoData.value : "";
+
+
     window.resultadoTaxiCheck = {
 
     total: conferencia.length,
+
+    dataPlanilha: dataPlanilha,
 
     encontrados: encontrados,
 
@@ -1870,6 +1900,10 @@ if(resultadoLinha && resultadoLinha.tipo === "encontrado"){
     naoEncontrados: naoEncontrados
 
 };
+
+
+window.conferidosAtual = {};
+window.idHistoricoAtual = null;
 
 
 mostrarResultado(
@@ -1899,6 +1933,8 @@ function salvarHistorico(dados){
 
         dataHora: firebase.firestore.FieldValue.serverTimestamp(),
 
+        dataPlanilha: dados.dataPlanilha || "",
+
         total: dados.total,
 
         encontrados: dados.encontrados,
@@ -1909,7 +1945,14 @@ function salvarHistorico(dados){
 
         divergencias: dados.divergencias,
 
-        naoEncontrados: dados.naoEncontrados
+        naoEncontrados: dados.naoEncontrados,
+
+        conferidos: {}
+
+    })
+    .then(function(referenciaDoc){
+
+        window.idHistoricoAtual = referenciaDoc.id;
 
     })
     .catch(function(erro){
@@ -1920,6 +1963,16 @@ function salvarHistorico(dados){
 
 }
 
+
+
+
+function estaConferido(chamado){
+
+    let mapa = window.conferidosAtual || {};
+
+    return !!mapa[String(chamado)];
+
+}
 
 
 
@@ -1939,6 +1992,7 @@ function montarLinhasResultado(encontrados, comDesconto, comValorMinimo, diverge
             percentual: item.percentual,
             desconto: null,
             valorMinimo: null,
+            conferido: estaConferido(item.chamado),
             status: "ok"
 
         });
@@ -1957,6 +2011,7 @@ function montarLinhasResultado(encontrados, comDesconto, comValorMinimo, diverge
             percentual: item.percentual,
             desconto: item.desconto,
             valorMinimo: null,
+            conferido: estaConferido(item.chamado),
             status: "desconto"
 
         });
@@ -1975,6 +2030,7 @@ function montarLinhasResultado(encontrados, comDesconto, comValorMinimo, diverge
             percentual: item.percentual,
             desconto: null,
             valorMinimo: item.valorMinimo,
+            conferido: estaConferido(item.chamado),
             status: "minimo"
 
         });
@@ -1993,6 +2049,7 @@ function montarLinhasResultado(encontrados, comDesconto, comValorMinimo, diverge
             percentual: item.percentual,
             desconto: null,
             valorMinimo: null,
+            conferido: estaConferido(item.chamado),
             status: "divergencia"
 
         });
