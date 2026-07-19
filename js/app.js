@@ -275,6 +275,8 @@ firebase.auth().onAuthStateChanged(function(usuario){
         document.getElementById("dashboard")
         .classList.remove("escondido");
 
+        abrirDashboard();
+
     } else {
 
         document.getElementById("dashboard")
@@ -810,6 +812,307 @@ function limparHistorico(){
         console.error("Erro ao apagar histórico:", erro);
 
         alert("Não foi possível apagar o histórico");
+
+    });
+
+}
+
+
+
+function abrirDashboard(){
+
+    document.getElementById("resultado").innerHTML = `
+
+    <div class="secao-titulo">
+        <h2>Visão geral</h2>
+        <p class="secao-desc">Resumo das últimas conferências realizadas.</p>
+    </div>
+
+    <div id="dashboardConteudo" class="carregando-bloco">
+        <div class="spinner"></div>
+        <p>Carregando dados...</p>
+    </div>
+
+    `;
+
+    let usuarioAtual = firebase.auth().currentUser;
+
+    if(!usuarioAtual){
+
+        return;
+
+    }
+
+    db.collection("historico")
+    .where("uid", "==", usuarioAtual.uid)
+    .orderBy("dataHora", "desc")
+    .limit(50)
+    .get()
+    .then(function(snapshot){
+
+        renderizarDashboard(snapshot);
+
+    })
+    .catch(function(erro){
+
+        console.error("Erro ao carregar dashboard:", erro);
+
+        document.getElementById("dashboardConteudo").innerHTML = `
+
+        <div class="status-info">
+            <p>Não foi possível carregar os dados do dashboard.</p>
+        </div>
+
+        `;
+
+    });
+
+}
+
+
+
+function renderizarDashboard(snapshot){
+
+    if(snapshot.empty){
+
+        document.getElementById("dashboardConteudo").innerHTML = `
+
+        <div class="status-info">
+            <p>Nenhuma conferência realizada ainda. Assim que você comparar sua primeira planilha, o resumo aparece aqui.</p>
+        </div>
+
+        `;
+
+        return;
+
+    }
+
+    let conferenciasRealizadas = 0;
+    let corridasAnalisadas = 0;
+    let totalEncontrados = 0;
+    let totalDesconto = 0;
+    let totalMinimo = 0;
+    let totalDivergencias = 0;
+    let totalNaoEncontrados = 0;
+    let valorDivergente = 0;
+
+    let porCliente = {};
+
+    snapshot.forEach(function(doc){
+
+        let d = doc.data();
+
+        conferenciasRealizadas++;
+
+        corridasAnalisadas += d.total || 0;
+
+        totalEncontrados += (d.encontrados || []).length;
+        totalDesconto += (d.comDesconto || []).length;
+        totalMinimo += (d.comValorMinimo || []).length;
+        totalNaoEncontrados += (d.naoEncontrados || []).length;
+
+        (d.divergencias || []).forEach(function(item){
+
+            totalDivergencias++;
+
+            valorDivergente += item.diferenca || 0;
+
+            let nomeCliente = item.cliente || "Sem cliente identificado";
+
+            porCliente[nomeCliente] = (porCliente[nomeCliente] || 0) + (item.diferenca || 0);
+
+        });
+
+    });
+
+    let totalClassificado = totalEncontrados + totalDesconto + totalMinimo + totalDivergencias + totalNaoEncontrados;
+
+    let taxaAcerto = totalClassificado > 0
+        ? ((totalEncontrados + totalDesconto + totalMinimo) / totalClassificado) * 100
+        : 0;
+
+    let topClientes = Object.keys(porCliente)
+        .map(function(nome){ return { nome: nome, valor: porCliente[nome] }; })
+        .sort(function(a, b){ return b.valor - a.valor; })
+        .slice(0, 5);
+
+    document.getElementById("dashboardConteudo").innerHTML = `
+
+    <div class="stats-grid">
+
+        <div class="stat-card stat-total">
+            <span class="stat-label">Conferências realizadas</span>
+            <span class="stat-valor">${conferenciasRealizadas}</span>
+        </div>
+
+        <div class="stat-card stat-total">
+            <span class="stat-label">Corridas analisadas</span>
+            <span class="stat-valor">${corridasAnalisadas}</span>
+        </div>
+
+        <div class="stat-card stat-sucesso">
+            <span class="stat-label">Taxa de acerto</span>
+            <span class="stat-valor">${formatarPercentual(taxaAcerto)}</span>
+        </div>
+
+        <div class="stat-card stat-erro">
+            <span class="stat-label">Valor em divergência</span>
+            <span class="stat-valor">${formatarMoeda(valorDivergente)}</span>
+        </div>
+
+    </div>
+
+    <div class="graficos-grid">
+
+        <div class="tabela-card">
+            <h3>Distribuição por status</h3>
+            <canvas id="graficoStatus" height="220"></canvas>
+        </div>
+
+        <div class="tabela-card">
+            <h3>Clientes com mais divergência</h3>
+            ${topClientes.length ? '<canvas id="graficoClientes" height="220"></canvas>' : '<p class="secao-desc">Nenhuma divergência registrada nas últimas conferências.</p>'}
+        </div>
+
+    </div>
+
+    <p class="secao-desc">Baseado nas últimas ${conferenciasRealizadas} conferência(s) salvas no histórico.</p>
+
+    `;
+
+    desenharGraficoStatus(totalEncontrados, totalDesconto, totalMinimo, totalDivergencias, totalNaoEncontrados);
+
+    if(topClientes.length){
+
+        desenharGraficoClientes(topClientes);
+
+    }
+
+}
+
+
+
+function desenharGraficoStatus(encontrados, desconto, minimo, divergencias, naoEncontrados){
+
+    let canvas = document.getElementById("graficoStatus");
+
+    if(!canvas || typeof Chart === "undefined"){
+
+        return;
+
+    }
+
+    if(window.graficoStatusChart){
+
+        window.graficoStatusChart.destroy();
+
+    }
+
+    window.graficoStatusChart = new Chart(canvas, {
+
+        type: "doughnut",
+
+        data: {
+
+            labels: ["Encontrados", "Desconto aplicado", "Tarifa mínima", "Divergência", "Não encontrados"],
+
+            datasets: [{
+
+                data: [encontrados, desconto, minimo, divergencias, naoEncontrados],
+
+                backgroundColor: ["#1F8A5F", "#2A6F97", "#6FA8C9", "#B8722B", "#B23B3B"],
+
+                borderWidth: 0
+
+            }]
+
+        },
+
+        options: {
+
+            plugins: {
+
+                legend: {
+
+                    position: "bottom",
+
+                    labels: { font: { family: "Inter", size: 12 }, padding: 14, boxWidth: 12 }
+
+                }
+
+            },
+
+            cutout: "62%"
+
+        }
+
+    });
+
+}
+
+
+
+function desenharGraficoClientes(topClientes){
+
+    let canvas = document.getElementById("graficoClientes");
+
+    if(!canvas || typeof Chart === "undefined"){
+
+        return;
+
+    }
+
+    if(window.graficoClientesChart){
+
+        window.graficoClientesChart.destroy();
+
+    }
+
+    window.graficoClientesChart = new Chart(canvas, {
+
+        type: "bar",
+
+        data: {
+
+            labels: topClientes.map(function(c){ return c.nome; }),
+
+            datasets: [{
+
+                label: "Valor em divergência (R$)",
+
+                data: topClientes.map(function(c){ return c.valor; }),
+
+                backgroundColor: "#B8722B"
+
+            }]
+
+        },
+
+        options: {
+
+            indexAxis: "y",
+
+            plugins: {
+
+                legend: { display: false }
+
+            },
+
+            scales: {
+
+                x: {
+
+                    ticks: {
+
+                        callback: function(valor){ return "R$ " + valor; }
+
+                    }
+
+                }
+
+            }
+
+        }
 
     });
 
@@ -2616,6 +2919,10 @@ function mostrarResultado(total, encontrados, comDesconto, comValorMinimo, diver
         Exportar Excel
     </button>
 
+    <button class="botao-secundario" onclick="exportarPDF()">
+        Exportar PDF
+    </button>
+
     `;
 
     document.getElementById(destino)
@@ -3053,5 +3360,249 @@ XLSX.utils.book_append_sheet(
         "TaxiCheck_Relatorio.xlsx"
     );
 
+
+}
+
+
+
+function garantirEspacoPDF(doc, posicaoY){
+
+    if(posicaoY > 265){
+
+        doc.addPage();
+
+        return 20;
+
+    }
+
+    return posicaoY;
+
+}
+
+
+
+function exportarPDF(){
+
+    if(!window.resultadoTaxiCheck){
+
+        alert("Faça uma comparação primeiro");
+
+        return;
+
+    }
+
+    if(!window.jspdf){
+
+        alert("Não foi possível carregar o gerador de PDF. Verifique sua conexão e tente novamente.");
+
+        return;
+
+    }
+
+    let dados = window.resultadoTaxiCheck;
+    let comDesconto = dados.comDesconto || [];
+    let comValorMinimo = dados.comValorMinimo || [];
+
+    let jsPDFConstrutor = window.jspdf.jsPDF;
+
+    let doc = new jsPDFConstrutor();
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("TaxiCheck - Relatório de Conferência", 14, 18);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+
+    doc.text("Gerado em: " + new Date().toLocaleString("pt-BR"), 14, 25);
+
+    if(dados.dataPlanilha){
+
+        doc.text("Planilha referente a: " + formatarDataBR(dados.dataPlanilha), 14, 31);
+
+    }
+
+    doc.autoTable({
+
+        startY: 36,
+
+        head: [["Informação", "Quantidade"]],
+
+        body: [
+
+            ["Total analisado", String(dados.total)],
+            ["Encontrados", String(dados.encontrados.length)],
+            ["Desconto aplicado", String(comDesconto.length)],
+            ["Tarifa mínima", String(comValorMinimo.length)],
+            ["Divergência de valor", String(dados.divergencias.length)],
+            ["Não encontrados", String(dados.naoEncontrados.length)]
+
+        ],
+
+        theme: "grid",
+
+        headStyles: { fillColor: [27, 79, 114] },
+
+        styles: { fontSize: 9 }
+
+    });
+
+    let posicaoY = doc.lastAutoTable.finalY + 10;
+
+
+    if(dados.divergencias.length > 0){
+
+        posicaoY = garantirEspacoPDF(doc, posicaoY);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("Divergências de valor", 14, posicaoY);
+
+        doc.autoTable({
+
+            startY: posicaoY + 4,
+
+            head: [["Chamado", "Cliente", "Referência", "Conferência", "Diferença", "%"]],
+
+            body: dados.divergencias.map(function(item){
+
+                return [
+                    String(item.chamado),
+                    item.cliente || "-",
+                    formatarMoeda(item.valorReferencia),
+                    formatarMoeda(item.valorConferencia),
+                    formatarMoeda(item.diferenca),
+                    formatarPercentual(item.percentual)
+                ];
+
+            }),
+
+            theme: "striped",
+
+            headStyles: { fillColor: [178, 59, 59] },
+
+            styles: { fontSize: 8 }
+
+        });
+
+        posicaoY = doc.lastAutoTable.finalY + 10;
+
+    }
+
+
+    if(comDesconto.length > 0){
+
+        posicaoY = garantirEspacoPDF(doc, posicaoY);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("Desconto aplicado", 14, posicaoY);
+
+        doc.autoTable({
+
+            startY: posicaoY + 4,
+
+            head: [["Chamado", "Cliente", "Desconto", "Referência", "Esperado", "Conferência"]],
+
+            body: comDesconto.map(function(item){
+
+                return [
+                    String(item.chamado),
+                    item.cliente || "-",
+                    formatarPercentual(item.desconto),
+                    formatarMoeda(item.valorReferencia),
+                    formatarMoeda(item.valorEsperado),
+                    formatarMoeda(item.valorConferencia)
+                ];
+
+            }),
+
+            theme: "striped",
+
+            headStyles: { fillColor: [42, 111, 151] },
+
+            styles: { fontSize: 8 }
+
+        });
+
+        posicaoY = doc.lastAutoTable.finalY + 10;
+
+    }
+
+
+    if(comValorMinimo.length > 0){
+
+        posicaoY = garantirEspacoPDF(doc, posicaoY);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("Tarifa mínima aplicada", 14, posicaoY);
+
+        doc.autoTable({
+
+            startY: posicaoY + 4,
+
+            head: [["Chamado", "Cliente", "Referência", "Mínimo", "Conferência"]],
+
+            body: comValorMinimo.map(function(item){
+
+                return [
+                    String(item.chamado),
+                    item.cliente || "-",
+                    formatarMoeda(item.valorReferencia),
+                    formatarMoeda(item.valorMinimo),
+                    formatarMoeda(item.valorConferencia)
+                ];
+
+            }),
+
+            theme: "striped",
+
+            headStyles: { fillColor: [42, 111, 151] },
+
+            styles: { fontSize: 8 }
+
+        });
+
+        posicaoY = doc.lastAutoTable.finalY + 10;
+
+    }
+
+
+    if(dados.naoEncontrados.length > 0){
+
+        posicaoY = garantirEspacoPDF(doc, posicaoY);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("Não encontrados", 14, posicaoY);
+
+        doc.autoTable({
+
+            startY: posicaoY + 4,
+
+            head: [["Chamado", "Cliente", "Valor"]],
+
+            body: dados.naoEncontrados.map(function(item){
+
+                return [
+                    String(item.chamado),
+                    item.cliente || "-",
+                    formatarMoeda(item.valorConferencia !== undefined ? item.valorConferencia : item.valor)
+                ];
+
+            }),
+
+            theme: "striped",
+
+            headStyles: { fillColor: [90, 90, 90] },
+
+            styles: { fontSize: 8 }
+
+        });
+
+    }
+
+    doc.save("TaxiCheck_Relatorio.pdf");
 
 }

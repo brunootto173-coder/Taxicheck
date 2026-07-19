@@ -351,6 +351,7 @@ h1, h2, h3{
 .sidebar-nav .nav-item:nth-child(3){ animation-delay: 0.12s; }
 .sidebar-nav .nav-item:nth-child(4){ animation-delay: 0.16s; }
 .sidebar-nav .nav-item:nth-child(5){ animation-delay: 0.2s; }
+.sidebar-nav .nav-item:nth-child(6){ animation-delay: 0.24s; }
 
 .nav-icone{
     font-size: 15px;
@@ -604,6 +605,26 @@ h1, h2, h3{
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 14px;
     margin: 24px 0 32px;
+}
+
+.graficos-grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.graficos-grid .tabela-card{
+    display: flex;
+    flex-direction: column;
+}
+
+@media (max-width: 900px){
+
+    .graficos-grid{
+        grid-template-columns: 1fr;
+    }
+
 }
 
 .stat-card{

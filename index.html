@@ -68,6 +68,11 @@
 
             <nav class="sidebar-nav">
 
+                <button class="nav-item ativo" onclick="ativarMenu(this); abrirDashboard()">
+                    <span class="nav-icone">▦</span>
+                    Dashboard
+                </button>
+
                 <button class="nav-item" onclick="ativarMenu(this); clientes()">
                     <span class="nav-icone">◎</span>
                     Clientes
@@ -78,7 +83,7 @@
                     Organizar Planilha
                 </button>
 
-                <button class="nav-item ativo" onclick="ativarMenu(this); comparar()">
+                <button class="nav-item" onclick="ativarMenu(this); comparar()">
                     <span class="nav-icone">▤</span>
                     Comparar Planilhas
                 </button>
@@ -122,6 +127,9 @@
     </section>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.3/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
