@@ -749,7 +749,6 @@ table::-webkit-scrollbar-thumb:hover{
     font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
-    animation: entrarEscala 0.25s ease backwards;
 }
 
 .badge-sucesso{

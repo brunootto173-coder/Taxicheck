@@ -1801,21 +1801,66 @@ const tolerancia = (window.configUsuario && typeof window.configUsuario.toleranc
 
 
 
+    // índice por número exato — evita comparar cada linha da conferência
+    // com TODAS as linhas da referência (o que travava em planilhas grandes)
+
+    let indiceReferenciaPorNumero = new Map();
+
+    referencia.forEach(function(linhaRef){
+
+        let chave = String(linhaRef[colunaNumeroRef]).trim();
+
+        if(!indiceReferenciaPorNumero.has(chave)){
+
+            indiceReferenciaPorNumero.set(chave, linhaRef);
+
+        }
+
+    });
+
+
+    function encontrarLinhaReferencia(chamadoConf){
+
+        let chaveExata = String(chamadoConf).trim();
+
+        let direta = indiceReferenciaPorNumero.get(chaveExata);
+
+        if(direta){
+
+            return direta;
+
+        }
+
+        // não achou por igualdade exata — tenta o caso de letras
+        // trocadas por um código numérico fixo (mais raro, por isso só
+        // cai aqui quando a busca direta pelo índice não resolveu)
+
+        for(let i = 0; i < referencia.length; i++){
+
+            if(correspondemChamados(referencia[i][colunaNumeroRef], chamadoConf)){
+
+                return referencia[i];
+
+            }
+
+        }
+
+        return null;
+
+    }
+
+
     conferencia.forEach(linhaConf => {
 
+
+       let chamadoAtual = linhaConf[colunaNumeroConf];
+
+       let linhaRef = encontrarLinhaReferencia(chamadoAtual);
 
        let resultadoLinha = null;
 
 
-referencia.forEach(linhaRef => {
-
-
-    if(
-        correspondemChamados(
-            linhaRef[colunaNumeroRef],
-            linhaConf[colunaNumeroConf]
-        )
-    ){
+    if(linhaRef){
 
         let valorReferencia =
         normalizarValor(linhaRef[colunaValorRef]);
@@ -1852,7 +1897,7 @@ referencia.forEach(linhaRef => {
 
             };
 
-        }else if(!resultadoLinha || (resultadoLinha.tipo !== "encontrado" && resultadoLinha.tipo !== "desconto" && resultadoLinha.tipo !== "minimo")){
+        }else{
 
             // a diferença pode ser explicada por um desconto
             // cadastrado pra esse cliente — se bater, não é divergência de verdade
@@ -1937,9 +1982,6 @@ referencia.forEach(linhaRef => {
         }
 
     }
-
-
-});
 
 
 
@@ -2253,9 +2295,15 @@ function filtrarResultado(status){
 
 function pesquisarResultado(texto){
 
-    window.pesquisaResultadoAtual = texto.trim().toLowerCase();
+    clearTimeout(window.timeoutPesquisaResultado);
 
-    renderizarTabelaResultado();
+    window.timeoutPesquisaResultado = setTimeout(function(){
+
+        window.pesquisaResultadoAtual = texto.trim().toLowerCase();
+
+        renderizarTabelaResultado();
+
+    }, 250);
 
 }
 
