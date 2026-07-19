@@ -304,6 +304,36 @@ function verHistorico(){
         <p class="secao-desc">Últimas comparações realizadas por você.</p>
     </div>
 
+    <div class="tabela-card">
+
+        <div class="tabela-controles">
+
+            <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+
+                <div>
+                    <label class="upload-label" style="margin-bottom:6px;">De</label>
+                    <input class="campo" style="margin:0; max-width:160px;" type="date" id="historicoDataInicio">
+                </div>
+
+                <div>
+                    <label class="upload-label" style="margin-bottom:6px;">Até</label>
+                    <input class="campo" style="margin:0; max-width:160px;" type="date" id="historicoDataFim">
+                </div>
+
+                <button class="botao-primario" onclick="filtrarHistoricoPorData()">
+                    Filtrar
+                </button>
+
+                <button class="botao-secundario" onclick="limparFiltroHistorico()">
+                    Limpar
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
     <div id="listaHistorico">
 
         <div class="status-info carregando-bloco">
@@ -315,96 +345,85 @@ function verHistorico(){
 
     `;
 
+    carregarListaHistorico();
+
+}
+
+
+
+function filtrarHistoricoPorData(){
+
+    let dataInicio = document.getElementById("historicoDataInicio").value;
+    let dataFim = document.getElementById("historicoDataFim").value;
+
+    if(dataInicio && dataFim && dataInicio > dataFim){
+
+        alert("A data 'De' não pode ser depois da data 'Até'");
+
+        return;
+
+    }
+
+    document.getElementById("listaHistorico").innerHTML = `
+
+    <div class="status-info carregando-bloco">
+        <div class="spinner"></div>
+        <p>Carregando...</p>
+    </div>
+
+    `;
+
+    carregarListaHistorico(dataInicio, dataFim);
+
+}
+
+
+
+function limparFiltroHistorico(){
+
+    document.getElementById("historicoDataInicio").value = "";
+    document.getElementById("historicoDataFim").value = "";
+
+    filtrarHistoricoPorData();
+
+}
+
+
+
+function carregarListaHistorico(dataInicio, dataFim){
+
     let uid = firebase.auth().currentUser.uid;
 
-    db.collection("historico")
-    .where("uid", "==", uid)
-    .orderBy("dataHora", "desc")
-    .limit((window.configUsuario && window.configUsuario.historicoLimite) || 30)
-    .get()
+    let consulta = db.collection("historico").where("uid", "==", uid);
+
+    if(dataInicio){
+
+        let inicio = new Date(dataInicio + "T00:00:00");
+
+        consulta = consulta.where("dataHora", ">=", firebase.firestore.Timestamp.fromDate(inicio));
+
+    }
+
+    if(dataFim){
+
+        let fim = new Date(dataFim + "T23:59:59");
+
+        consulta = consulta.where("dataHora", "<=", firebase.firestore.Timestamp.fromDate(fim));
+
+    }
+
+    consulta = consulta.orderBy("dataHora", "desc");
+
+    consulta = consulta.limit(
+        (dataInicio || dataFim)
+            ? 200
+            : ((window.configUsuario && window.configUsuario.historicoLimite) || 30)
+    );
+
+    consulta.get()
     .then(function(snapshot){
 
-        if(snapshot.empty){
-
-            document.getElementById("listaHistorico").innerHTML = `
-
-            <div class="status-info">
-                <p>Nenhuma conferência salva ainda.</p>
-            </div>
-
-            `;
-
-            return;
-
-        }
-
-        let html = `
-
-        <div class="tabela-card">
-
-        <table>
-
-        <thead>
-
-        <tr>
-            <th>Data</th>
-            <th>Planilha</th>
-            <th>Total</th>
-            <th>Encontrados</th>
-            <th>Divergência</th>
-            <th>Não encontrados</th>
-            <th></th>
-        </tr>
-
-        </thead>
-
-        <tbody>
-
-        `;
-
-        snapshot.forEach(function(doc){
-
-            let d = doc.data();
-
-            let data = d.dataHora
-                ? d.dataHora.toDate().toLocaleString("pt-BR")
-                : "-";
-
-            let dataPlanilha = d.dataPlanilha
-                ? formatarDataBR(d.dataPlanilha)
-                : "-";
-
-            html += `
-
-            <tr>
-                <td>${data}</td>
-                <td>${dataPlanilha}</td>
-                <td>${d.total}</td>
-                <td>${d.encontrados.length}</td>
-                <td>${d.divergencias.length}</td>
-                <td>${d.naoEncontrados.length}</td>
-                <td>
-                    <button class="botao-secundario" onclick="verDetalheHistorico('${doc.id}')">
-                        Ver
-                    </button>
-                </td>
-            </tr>
-
-            `;
-
-        });
-
-        html += `
-
-        </tbody>
-
-        </table>
-
-        </div>
-
-        `;
-
-        document.getElementById("listaHistorico").innerHTML = html;
+        renderizarListaHistorico(snapshot, !!(dataInicio || dataFim));
 
     })
     .catch(function(erro){
@@ -420,6 +439,94 @@ function verHistorico(){
         `;
 
     });
+
+}
+
+
+
+function renderizarListaHistorico(snapshot, filtrado){
+
+    if(snapshot.empty){
+
+        document.getElementById("listaHistorico").innerHTML = `
+
+        <div class="status-info">
+            <p>${filtrado ? "Nenhuma conferência encontrada nesse período." : "Nenhuma conferência salva ainda."}</p>
+        </div>
+
+        `;
+
+        return;
+
+    }
+
+    let html = `
+
+    <div class="tabela-card">
+
+    <table>
+
+    <thead>
+
+    <tr>
+        <th>Data</th>
+        <th>Planilha</th>
+        <th>Total</th>
+        <th>Encontrados</th>
+        <th>Divergência</th>
+        <th>Não encontrados</th>
+        <th></th>
+    </tr>
+
+    </thead>
+
+    <tbody>
+
+    `;
+
+    snapshot.forEach(function(doc){
+
+        let d = doc.data();
+
+        let data = d.dataHora
+            ? d.dataHora.toDate().toLocaleString("pt-BR")
+            : "-";
+
+        let dataPlanilha = d.dataPlanilha
+            ? formatarDataBR(d.dataPlanilha)
+            : "-";
+
+        html += `
+
+        <tr>
+            <td>${data}</td>
+            <td>${dataPlanilha}</td>
+            <td>${d.total}</td>
+            <td>${d.encontrados.length}</td>
+            <td>${d.divergencias.length}</td>
+            <td>${d.naoEncontrados.length}</td>
+            <td>
+                <button class="botao-secundario" onclick="verDetalheHistorico('${doc.id}')">
+                    Ver
+                </button>
+            </td>
+        </tr>
+
+        `;
+
+    });
+
+    html += `
+
+    </tbody>
+
+    </table>
+
+    </div>
+
+    `;
+
+    document.getElementById("listaHistorico").innerHTML = html;
 
 }
 
@@ -897,6 +1004,7 @@ function renderizarDashboard(snapshot){
     let valorDivergente = 0;
 
     let porCliente = {};
+    let evolucao = [];
 
     snapshot.forEach(function(doc){
 
@@ -911,11 +1019,15 @@ function renderizarDashboard(snapshot){
         totalMinimo += (d.comValorMinimo || []).length;
         totalNaoEncontrados += (d.naoEncontrados || []).length;
 
+        let valorDivergenteDoc = 0;
+
         (d.divergencias || []).forEach(function(item){
 
             totalDivergencias++;
 
             valorDivergente += item.diferenca || 0;
+
+            valorDivergenteDoc += item.diferenca || 0;
 
             let nomeCliente = item.cliente || "Sem cliente identificado";
 
@@ -923,7 +1035,16 @@ function renderizarDashboard(snapshot){
 
         });
 
+        let rotulo = d.dataPlanilha
+            ? formatarDataBR(d.dataPlanilha)
+            : (d.dataHora ? d.dataHora.toDate().toLocaleDateString("pt-BR") : "-");
+
+        evolucao.push({ rotulo: rotulo, valor: valorDivergenteDoc });
+
     });
+
+    // a busca vem da mais recente pra mais antiga — inverte pra ficar em ordem cronológica no gráfico
+    evolucao.reverse();
 
     let totalClassificado = totalEncontrados + totalDesconto + totalMinimo + totalDivergencias + totalNaoEncontrados;
 
@@ -962,6 +1083,13 @@ function renderizarDashboard(snapshot){
 
     </div>
 
+    <div class="tabela-card">
+        <h3>Evolução das divergências</h3>
+        <div class="grafico-container">
+            <canvas id="graficoEvolucao"></canvas>
+        </div>
+    </div>
+
     <div class="graficos-grid">
 
         <div class="tabela-card">
@@ -984,6 +1112,8 @@ function renderizarDashboard(snapshot){
 
     `;
 
+    desenharGraficoEvolucao(evolucao);
+
     desenharGraficoStatus(totalEncontrados, totalDesconto, totalMinimo, totalDivergencias, totalNaoEncontrados);
 
     if(topClientes.length){
@@ -991,6 +1121,88 @@ function renderizarDashboard(snapshot){
         desenharGraficoClientes(topClientes);
 
     }
+
+}
+
+
+
+function desenharGraficoEvolucao(evolucao){
+
+    let canvas = document.getElementById("graficoEvolucao");
+
+    if(!canvas || typeof Chart === "undefined"){
+
+        return;
+
+    }
+
+    if(window.graficoEvolucaoChart){
+
+        window.graficoEvolucaoChart.destroy();
+
+    }
+
+    window.graficoEvolucaoChart = new Chart(canvas, {
+
+        type: "line",
+
+        data: {
+
+            labels: evolucao.map(function(e){ return e.rotulo; }),
+
+            datasets: [{
+
+                label: "Valor em divergência (R$)",
+
+                data: evolucao.map(function(e){ return e.valor; }),
+
+                borderColor: "#B8722B",
+
+                backgroundColor: "rgba(184,114,43,0.12)",
+
+                fill: true,
+
+                tension: 0.3,
+
+                pointRadius: 3,
+
+                pointBackgroundColor: "#B8722B"
+
+            }]
+
+        },
+
+        options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
+
+            plugins: {
+
+                legend: { display: false }
+
+            },
+
+            scales: {
+
+                y: {
+
+                    beginAtZero: true,
+
+                    ticks: {
+
+                        callback: function(valor){ return "R$ " + valor; }
+
+                    }
+
+                }
+
+            }
+
+        }
+
+    });
 
 }
 
