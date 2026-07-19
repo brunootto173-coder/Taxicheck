@@ -966,12 +966,16 @@ function renderizarDashboard(snapshot){
 
         <div class="tabela-card">
             <h3>Distribuição por status</h3>
-            <canvas id="graficoStatus" height="220"></canvas>
+            <div class="grafico-container">
+                <canvas id="graficoStatus"></canvas>
+            </div>
         </div>
 
         <div class="tabela-card">
             <h3>Clientes com mais divergência</h3>
-            ${topClientes.length ? '<canvas id="graficoClientes" height="220"></canvas>' : '<p class="secao-desc">Nenhuma divergência registrada nas últimas conferências.</p>'}
+            ${topClientes.length
+                ? '<div class="grafico-container"><canvas id="graficoClientes"></canvas></div>'
+                : '<p class="secao-desc">Nenhuma divergência registrada nas últimas conferências.</p>'}
         </div>
 
     </div>
@@ -1029,6 +1033,10 @@ function desenharGraficoStatus(encontrados, desconto, minimo, divergencias, naoE
         },
 
         options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
 
             plugins: {
 
@@ -1089,6 +1097,10 @@ function desenharGraficoClientes(topClientes){
         },
 
         options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
 
             indexAxis: "y",
 

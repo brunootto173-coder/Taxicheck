@@ -619,6 +619,12 @@ h1, h2, h3{
     flex-direction: column;
 }
 
+.grafico-container{
+    position: relative;
+    height: 260px;
+    margin-top: 8px;
+}
+
 @media (max-width: 900px){
 
     .graficos-grid{
