@@ -817,6 +817,43 @@ function limparHistorico(){
 
 
 
+function contato(){
+
+    document.getElementById("resultado").innerHTML = `
+
+    <div class="secao-titulo">
+        <h2>Contato</h2>
+        <p class="secao-desc">Dúvidas, sugestões ou algo pra ajustar no sistema? Fala comigo.</p>
+    </div>
+
+    <div class="tabela-card" style="max-width:420px;">
+
+        <div class="contato-item">
+            <span class="contato-rotulo">WhatsApp</span>
+            <a href="https://wa.me/5541987220989" target="_blank" rel="noopener" class="botao-secundario" style="display:block; text-align:center; text-decoration:none;">
+                (41) 98722-0989
+            </a>
+        </div>
+
+        <div class="contato-item" style="margin-top:16px;">
+            <span class="contato-rotulo">E-mail</span>
+            <a href="mailto:brunootto173@gmail.com" class="botao-secundario" style="display:block; text-align:center; text-decoration:none;">
+                brunootto173@gmail.com
+            </a>
+        </div>
+
+        <p class="secao-desc" style="margin-top:22px; text-align:center;">
+            TaxiCheck — desenvolvido por <b>Bruno Otto</b>
+        </p>
+
+    </div>
+
+    `;
+
+}
+
+
+
 function clientes(){
 
     document.getElementById("resultado").innerHTML = `
