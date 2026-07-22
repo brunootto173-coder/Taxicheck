@@ -1878,6 +1878,37 @@ function pareceValorValido(valor){
 
 
 
+function normalizarTextoSemAcento(texto){
+
+    return (texto === null || texto === undefined ? "" : texto.toString())
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+
+}
+
+
+
+function linhaTemCartaoCredito(linhaDados){
+
+    for(let i = 0; i < linhaDados.length; i++){
+
+        let texto = normalizarTextoSemAcento(linhaDados[i]);
+
+        if(texto.indexOf("cartao") !== -1 && texto.indexOf("credito") !== -1){
+
+            return true;
+
+        }
+
+    }
+
+    return false;
+
+}
+
+
+
 function extrairColunasPlanilhaBruta(linhas){
 
     let aliasesNumero = (window.configUsuario && window.configUsuario.aliasesNumero)
@@ -1919,10 +1950,19 @@ function extrairColunasPlanilhaBruta(linhas){
             let dadosExtraidos = [];
             let ignoradas = 0;
             let trocadasPorQru = 0;
+            let ignoradasCartao = 0;
 
             for(let l = i + 1; l < linhas.length; l++){
 
                 let linhaDados = linhas[l];
+
+                if(linhaDados && linhaTemCartaoCredito(linhaDados)){
+
+                    ignoradasCartao++;
+
+                    continue;
+
+                }
 
                 if(!linhaDados ||
                    linhaDados[indiceNumero] === undefined ||
@@ -1989,7 +2029,8 @@ function extrairColunasPlanilhaBruta(linhas){
                 colunaCliente: nomeColunaCliente,
                 dados: dadosExtraidos,
                 ignoradas: ignoradas,
-                trocadasPorQru: trocadasPorQru
+                trocadasPorQru: trocadasPorQru,
+                ignoradasCartao: ignoradasCartao
 
             };
 
@@ -2026,6 +2067,7 @@ function mostrarPreviewOrganizada(resultado){
             "<b>${resultado.colunaNumero}</b>"${temCliente ? `, "<b>${resultado.colunaCliente}</b>"` : ""} e "<b>${resultado.colunaValor}</b>".
             ${resultado.ignoradas > 0 ? `<br>${resultado.ignoradas} linha(s) sem um valor numérico válido foram ignoradas (agrupamentos, subtotais, cabeçalhos repetidos etc.).` : ""}
             ${resultado.trocadasPorQru > 0 ? `<br>Em ${resultado.trocadasPorQru} corrida(s) do tipo voucher, usei o número da coluna "Qru" no lugar do "Numero" (que trazia um número sem padrão).` : ""}
+            ${resultado.ignoradasCartao > 0 ? `<br>${resultado.ignoradasCartao} linha(s) de cartão de crédito foram ignoradas (não precisam de conferência).` : ""}
         </p>
     </div>
 
@@ -2885,6 +2927,7 @@ function montarLinhasResultado(encontrados, comDesconto, comValorMinimo, diverge
             percentual: null,
             desconto: null,
             valorMinimo: null,
+            conferido: estaConferido(item.chamado),
             status: "nao-encontrado"
 
         });
