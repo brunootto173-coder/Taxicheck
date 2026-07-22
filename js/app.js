@@ -25,6 +25,12 @@ function configuracaoPadrao(){
 
         aliasesCliente: ["cliente", "nomecliente", "razaosocial"],
 
+        aliasesDocumento: ["documento"],
+
+        aliasesQru: ["qru"],
+
+        tiposDocumentoUsamQru: ["voucher"],
+
         historicoLimite: 30
 
     };
@@ -671,6 +677,31 @@ function configuracoes(){
 
     <div class="tabela-card">
 
+        <h3>Número por tipo de documento (Organizar Planilha)</h3>
+
+        <p class="secao-desc" style="margin-bottom:14px;">
+            Em algumas planilhas de conferência, dependendo do tipo de documento da corrida,
+            o número certo vem na coluna "Qru" em vez da coluna "Numero". Configure aqui quando isso deve acontecer.
+        </p>
+
+        <label class="upload-label">Nomes de coluna aceitos para "Documento"</label>
+        <input class="campo" type="text" id="cfgAliasDocumento" value="${(cfg.aliasesDocumento || configuracaoPadrao().aliasesDocumento).join(', ')}">
+
+        <label class="upload-label">Nomes de coluna aceitos para "Qru"</label>
+        <input class="campo" type="text" id="cfgAliasQru" value="${(cfg.aliasesQru || configuracaoPadrao().aliasesQru).join(', ')}">
+
+        <label class="upload-label">Tipos de documento que usam o número da coluna Qru</label>
+        <input class="campo" type="text" id="cfgTiposQru" value="${(cfg.tiposDocumentoUsamQru || configuracaoPadrao().tiposDocumentoUsamQru).join(', ')}">
+
+        <p class="secao-desc">
+            Ex: se o documento for "1-VOUCHER", escrever apenas "voucher" já é suficiente (não precisa bater exato).
+        </p>
+
+    </div>
+
+
+    <div class="tabela-card">
+
         <h3>Histórico</h3>
 
         <label class="upload-label">Quantidade de registros exibidos</label>
@@ -812,6 +843,21 @@ function salvarConfiguracoes(){
         .map(function(v){ return v.trim(); })
         .filter(Boolean);
 
+    let aliasesDocumento = document.getElementById("cfgAliasDocumento").value
+        .split(",")
+        .map(function(v){ return v.trim(); })
+        .filter(Boolean);
+
+    let aliasesQru = document.getElementById("cfgAliasQru").value
+        .split(",")
+        .map(function(v){ return v.trim(); })
+        .filter(Boolean);
+
+    let tiposDocumentoUsamQru = document.getElementById("cfgTiposQru").value
+        .split(",")
+        .map(function(v){ return v.trim(); })
+        .filter(Boolean);
+
     let historicoLimite = parseInt(document.getElementById("cfgHistoricoLimite").value);
 
     let mensagem = document.getElementById("mensagemConfig");
@@ -840,6 +886,18 @@ function salvarConfiguracoes(){
 
     }
 
+    if(!aliasesDocumento.length){
+
+        aliasesDocumento = configuracaoPadrao().aliasesDocumento;
+
+    }
+
+    if(!aliasesQru.length){
+
+        aliasesQru = configuracaoPadrao().aliasesQru;
+
+    }
+
     if(isNaN(historicoLimite) || historicoLimite < 1){
 
         historicoLimite = 30;
@@ -855,6 +913,12 @@ function salvarConfiguracoes(){
         aliasesValor: aliasesValor,
 
         aliasesCliente: aliasesCliente,
+
+        aliasesDocumento: aliasesDocumento,
+
+        aliasesQru: aliasesQru,
+
+        tiposDocumentoUsamQru: tiposDocumentoUsamQru,
 
         historicoLimite: historicoLimite
 
@@ -1825,6 +1889,15 @@ function extrairColunasPlanilhaBruta(linhas){
     let aliasesCliente = (window.configUsuario && window.configUsuario.aliasesCliente)
         || configuracaoPadrao().aliasesCliente;
 
+    let aliasesDocumento = (window.configUsuario && window.configUsuario.aliasesDocumento)
+        || configuracaoPadrao().aliasesDocumento;
+
+    let aliasesQru = (window.configUsuario && window.configUsuario.aliasesQru)
+        || configuracaoPadrao().aliasesQru;
+
+    let tiposDocumentoUsamQru = (window.configUsuario && window.configUsuario.tiposDocumentoUsamQru)
+        || configuracaoPadrao().tiposDocumentoUsamQru;
+
     for(let i = 0; i < Math.min(15, linhas.length); i++){
 
         let linha = linhas[i];
@@ -1834,6 +1907,8 @@ function extrairColunasPlanilhaBruta(linhas){
         let indiceNumero = encontrarIndiceColuna(linha, aliasesNumero);
         let indiceValor = encontrarIndiceColuna(linha, aliasesValor);
         let indiceCliente = encontrarIndiceColuna(linha, aliasesCliente);
+        let indiceDocumento = encontrarIndiceColuna(linha, aliasesDocumento);
+        let indiceQru = encontrarIndiceColuna(linha, aliasesQru);
 
         if(indiceNumero !== -1 && indiceValor !== -1){
 
@@ -1843,6 +1918,7 @@ function extrairColunasPlanilhaBruta(linhas){
 
             let dadosExtraidos = [];
             let ignoradas = 0;
+            let trocadasPorQru = 0;
 
             for(let l = i + 1; l < linhas.length; l++){
 
@@ -1863,9 +1939,36 @@ function extrairColunasPlanilhaBruta(linhas){
 
                 }
 
+                let numeroFinal = linhaDados[indiceNumero];
+
+                // alguns tipos de documento (ex: voucher) trazem o número
+                // certo na coluna Qru, e um número sem padrão na coluna Numero
+
+                if(indiceDocumento !== -1 && indiceQru !== -1){
+
+                    let tipoDocumento = normalizarNomeColuna(linhaDados[indiceDocumento] || "");
+
+                    let ehTipoComQru = tiposDocumentoUsamQru.some(function(tipo){
+
+                        return tipoDocumento.indexOf(normalizarNomeColuna(tipo)) !== -1;
+
+                    });
+
+                    if(ehTipoComQru &&
+                       linhaDados[indiceQru] !== undefined &&
+                       linhaDados[indiceQru] !== ""){
+
+                        numeroFinal = linhaDados[indiceQru];
+
+                        trocadasPorQru++;
+
+                    }
+
+                }
+
                 let registro = {};
 
-                registro[nomeColunaNumero] = linhaDados[indiceNumero];
+                registro[nomeColunaNumero] = numeroFinal;
                 registro[nomeColunaValor] = linhaDados[indiceValor];
 
                 if(indiceCliente !== -1){
@@ -1885,7 +1988,8 @@ function extrairColunasPlanilhaBruta(linhas){
                 colunaValor: nomeColunaValor,
                 colunaCliente: nomeColunaCliente,
                 dados: dadosExtraidos,
-                ignoradas: ignoradas
+                ignoradas: ignoradas,
+                trocadasPorQru: trocadasPorQru
 
             };
 
@@ -1921,6 +2025,7 @@ function mostrarPreviewOrganizada(resultado){
             ✓ Encontrei o cabeçalho e extraí <b>${linhas.length}</b> corridas usando as colunas
             "<b>${resultado.colunaNumero}</b>"${temCliente ? `, "<b>${resultado.colunaCliente}</b>"` : ""} e "<b>${resultado.colunaValor}</b>".
             ${resultado.ignoradas > 0 ? `<br>${resultado.ignoradas} linha(s) sem um valor numérico válido foram ignoradas (agrupamentos, subtotais, cabeçalhos repetidos etc.).` : ""}
+            ${resultado.trocadasPorQru > 0 ? `<br>Em ${resultado.trocadasPorQru} corrida(s) do tipo voucher, usei o número da coluna "Qru" no lugar do "Numero" (que trazia um número sem padrão).` : ""}
         </p>
     </div>
 
