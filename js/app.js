@@ -249,6 +249,44 @@ function sair(){
 
 
 
+const TEMPO_INATIVIDADE_MS = 20 * 60 * 1000; // 20 minutos
+
+function reiniciarTemporizadorInatividade(){
+
+    clearTimeout(window.temporizadorInatividade);
+
+    if(!firebase.auth().currentUser){
+
+        return;
+
+    }
+
+    window.temporizadorInatividade = setTimeout(function(){
+
+        if(firebase.auth().currentUser){
+
+            sair();
+
+            alert("Sessão encerrada por inatividade. Faça login novamente.");
+
+        }
+
+    }, TEMPO_INATIVIDADE_MS);
+
+}
+
+["click", "keydown", "mousemove", "scroll", "touchstart"].forEach(function(evento){
+
+    document.addEventListener(evento, function(){
+
+        reiniciarTemporizadorInatividade();
+
+    }, { passive: true });
+
+});
+
+
+
 function ativarMenu(botao){
 
     document.querySelectorAll(".nav-item")
@@ -283,7 +321,11 @@ firebase.auth().onAuthStateChanged(function(usuario){
 
         abrirDashboard();
 
+        reiniciarTemporizadorInatividade();
+
     } else {
+
+        clearTimeout(window.temporizadorInatividade);
 
         document.getElementById("dashboard")
         .classList.add("escondido");
@@ -638,7 +680,7 @@ function configuracoes(){
         </p>
 
         <label class="upload-label">Nova senha</label>
-        <input class="campo" type="password" id="novaSenha" placeholder="Mínimo 6 caracteres">
+        <input class="campo" type="password" id="novaSenha" placeholder="Mínimo 8 caracteres, com letras e números">
 
         <label class="upload-label">Confirmar nova senha</label>
         <input class="campo" type="password" id="confirmarSenha" placeholder="Repita a nova senha">
@@ -780,9 +822,17 @@ function atualizarSenha(){
     mensagem.style.color = "var(--cor-erro)";
     mensagem.innerHTML = "";
 
-    if(!nova || nova.length < 6){
+    if(!nova || nova.length < 8){
 
-        mensagem.innerHTML = "A senha deve ter pelo menos 6 caracteres";
+        mensagem.innerHTML = "A senha deve ter pelo menos 8 caracteres";
+
+        return;
+
+    }
+
+    if(!/[a-zA-Z]/.test(nova) || !/[0-9]/.test(nova)){
+
+        mensagem.innerHTML = "A senha deve ter letras e números";
 
         return;
 
@@ -1626,7 +1676,7 @@ function renderizarTabelaClientes(lista, filtrado){
         html += `
 
         <tr>
-            <td>${c.nome}</td>
+            <td>${escapeHTML(c.nome)}</td>
             <td>${(c.desconto !== null && c.desconto !== undefined) ? formatarPercentual(c.desconto) : "-"}</td>
             <td>${(c.valorMinimo !== null && c.valorMinimo !== undefined) ? formatarMoeda(c.valorMinimo) : "-"}</td>
             <td>
@@ -1920,6 +1970,51 @@ function pareceValorValido(valor){
 
 
 
+function sanitizarParaExcel(valor){
+
+    if(valor === null || valor === undefined){
+
+        return valor;
+
+    }
+
+    let texto = valor.toString();
+
+    // se começar com = + - @ (ou tab/CR), o Excel pode interpretar como fórmula —
+    // prefixa com aspas simples pra forçar tratamento como texto puro
+
+    if(/^[=+\-@\t\r]/.test(texto)){
+
+        return "'" + texto;
+
+    }
+
+    return valor;
+
+}
+
+
+
+function escapeHTML(texto){
+
+    if(texto === null || texto === undefined){
+
+        return "";
+
+    }
+
+    return texto
+        .toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+}
+
+
+
 function normalizarTextoSemAcento(texto){
 
     return (texto === null || texto === undefined ? "" : texto.toString())
@@ -2050,12 +2145,12 @@ function extrairColunasPlanilhaBruta(linhas){
 
                 let registro = {};
 
-                registro[nomeColunaNumero] = numeroFinal;
+                registro[nomeColunaNumero] = sanitizarParaExcel(numeroFinal);
                 registro[nomeColunaValor] = linhaDados[indiceValor];
 
                 if(indiceCliente !== -1){
 
-                    registro[nomeColunaCliente] = linhaDados[indiceCliente];
+                    registro[nomeColunaCliente] = sanitizarParaExcel(linhaDados[indiceCliente]);
 
                 }
 
@@ -2094,9 +2189,9 @@ function mostrarPreviewOrganizada(resultado){
     let linhasPreview = linhas.slice(0, 10).map(function(l){
 
         return `<tr>
-            <td>${l[resultado.colunaNumero]}</td>
-            ${temCliente ? `<td>${l[resultado.colunaCliente] || "-"}</td>` : ""}
-            <td>${l[resultado.colunaValor]}</td>
+            <td>${escapeHTML(l[resultado.colunaNumero])}</td>
+            ${temCliente ? `<td>${escapeHTML(l[resultado.colunaCliente]) || "-"}</td>` : ""}
+            <td>${escapeHTML(l[resultado.colunaValor])}</td>
         </tr>`;
 
     }).join("");
@@ -3130,13 +3225,13 @@ function renderizarTabelaResultado(){
                 <input
                     type="checkbox"
                     class="check-conferido"
-                    data-chamado="${l.chamado}"
+                    data-chamado="${escapeHTML(l.chamado)}"
                     ${l.conferido ? "checked" : ""}
                     onchange="marcarConferido(this)">
             </td>
             <td>${badgeStatus(l)}</td>
-            <td>${l.chamado}</td>
-            <td>${l.cliente || "-"}</td>
+            <td>${escapeHTML(l.chamado)}</td>
+            <td>${escapeHTML(l.cliente) || "-"}</td>
             <td>${l.valorReferencia !== null && l.valorReferencia !== undefined ? formatarMoeda(l.valorReferencia) : "-"}</td>
             <td>${l.valorConferencia !== null && l.valorConferencia !== undefined ? formatarMoeda(l.valorConferencia) : "-"}</td>
             <td>${l.diferenca !== null && l.diferenca !== undefined ? formatarMoeda(l.diferenca) : "-"}</td>
@@ -3424,9 +3519,9 @@ function exportarExcel(){
 
     let divergencias = dados.divergencias.map(item => ({
 
-        "Chamado": item.chamado,
+        "Chamado": sanitizarParaExcel(item.chamado),
 
-        "Cliente": item.cliente || "",
+        "Cliente": sanitizarParaExcel(item.cliente) || "",
 
         "Valor Referência": item.valorReferencia,
 
@@ -3440,9 +3535,9 @@ function exportarExcel(){
 
 let encontrados = dados.encontrados.map(item => ({
 
-    "Chamado": item.chamado,
+    "Chamado": sanitizarParaExcel(item.chamado),
 
-    "Cliente": item.cliente || "",
+    "Cliente": sanitizarParaExcel(item.cliente) || "",
 
     "Valor Referência": item.valorReferencia !== undefined ? item.valorReferencia : "",
 
@@ -3454,9 +3549,9 @@ let encontrados = dados.encontrados.map(item => ({
 
     let comDescontoExport = comDesconto.map(item => ({
 
-        "Chamado": item.chamado,
+        "Chamado": sanitizarParaExcel(item.chamado),
 
-        "Cliente": item.cliente || "",
+        "Cliente": sanitizarParaExcel(item.cliente) || "",
 
         "Desconto": item.desconto / 100,
 
@@ -3474,9 +3569,9 @@ let encontrados = dados.encontrados.map(item => ({
 
     let comValorMinimoExport = comValorMinimo.map(item => ({
 
-        "Chamado": item.chamado,
+        "Chamado": sanitizarParaExcel(item.chamado),
 
-        "Cliente": item.cliente || "",
+        "Cliente": sanitizarParaExcel(item.cliente) || "",
 
         "Valor Referência": item.valorReferencia,
 
@@ -3492,9 +3587,9 @@ let encontrados = dados.encontrados.map(item => ({
 
     let naoEncontrados = dados.naoEncontrados.map(item => ({
 
-    "Chamado": item.chamado,
+    "Chamado": sanitizarParaExcel(item.chamado),
 
-    "Cliente": item.cliente || "",
+    "Cliente": sanitizarParaExcel(item.cliente) || "",
 
     "Valor": item.valorConferencia !== undefined ? item.valorConferencia : item.valor
 
