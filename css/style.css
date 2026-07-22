@@ -181,7 +181,7 @@ h1, h2, h3{
 }
 
 .logo-login img{
-    width: 88px;
+    width: 132px;
     max-width: 100%;
     height: auto;
 }
@@ -302,8 +302,8 @@ h1, h2, h3{
 }
 
 .sidebar-logo{
-    width: 28px;
-    height: 28px;
+    width: 38px;
+    height: 38px;
     object-fit: contain;
 }
 
