@@ -1486,6 +1486,14 @@ function clientes(){
 
         <h3>Clientes cadastrados</h3>
 
+        <input
+            class="campo campo-busca"
+            style="margin-bottom:16px;"
+            type="text"
+            id="pesquisaCliente"
+            placeholder="Buscar cliente..."
+            oninput="filtrarListaClientes(this.value)">
+
         <div id="listaClientes" class="carregando-bloco">
             <div class="spinner"></div>
             <p class="secao-desc">Carregando...</p>
@@ -1535,57 +1543,7 @@ function carregarListaClientes(){
 
         window.clientesUsuario = lista;
 
-        if(lista.length === 0){
-
-            document.getElementById("listaClientes").innerHTML = `
-
-            <div class="status-info">
-                <p>Nenhum cliente cadastrado ainda.</p>
-            </div>
-
-            `;
-
-            return;
-
-        }
-
-        let html = `
-
-        <table>
-        <thead>
-        <tr>
-            <th>Cliente</th>
-            <th>Desconto</th>
-            <th>Valor mínimo</th>
-            <th></th>
-        </tr>
-        </thead>
-        <tbody>
-
-        `;
-
-        lista.forEach(function(c){
-
-            html += `
-
-            <tr>
-                <td>${c.nome}</td>
-                <td>${(c.desconto !== null && c.desconto !== undefined) ? formatarPercentual(c.desconto) : "-"}</td>
-                <td>${(c.valorMinimo !== null && c.valorMinimo !== undefined) ? formatarMoeda(c.valorMinimo) : "-"}</td>
-                <td>
-                    <button class="botao-secundario" style="border-color: var(--cor-erro); color: var(--cor-erro);" onclick="excluirCliente('${c.id}')">
-                        Excluir
-                    </button>
-                </td>
-            </tr>
-
-            `;
-
-        });
-
-        html += `</tbody></table>`;
-
-        document.getElementById("listaClientes").innerHTML = html;
+        renderizarTabelaClientes(lista);
 
     })
     .catch(function(erro){
@@ -1601,6 +1559,90 @@ function carregarListaClientes(){
         `;
 
     });
+
+}
+
+
+
+function filtrarListaClientes(texto){
+
+    clearTimeout(window.timeoutPesquisaCliente);
+
+    window.timeoutPesquisaCliente = setTimeout(function(){
+
+        let lista = window.clientesUsuario || [];
+
+        let pesquisa = normalizarNomeCliente(texto);
+
+        let filtrada = pesquisa
+            ? lista.filter(function(c){
+
+                return normalizarNomeCliente(c.nome).indexOf(pesquisa) !== -1;
+
+            })
+            : lista;
+
+        renderizarTabelaClientes(filtrada, !!pesquisa);
+
+    }, 200);
+
+}
+
+
+
+function renderizarTabelaClientes(lista, filtrado){
+
+    if(lista.length === 0){
+
+        document.getElementById("listaClientes").innerHTML = `
+
+        <div class="status-info">
+            <p>${filtrado ? "Nenhum cliente encontrado com esse nome." : "Nenhum cliente cadastrado ainda."}</p>
+        </div>
+
+        `;
+
+        return;
+
+    }
+
+    let html = `
+
+    <table>
+    <thead>
+    <tr>
+        <th>Cliente</th>
+        <th>Desconto</th>
+        <th>Valor mínimo</th>
+        <th></th>
+    </tr>
+    </thead>
+    <tbody>
+
+    `;
+
+    lista.forEach(function(c){
+
+        html += `
+
+        <tr>
+            <td>${c.nome}</td>
+            <td>${(c.desconto !== null && c.desconto !== undefined) ? formatarPercentual(c.desconto) : "-"}</td>
+            <td>${(c.valorMinimo !== null && c.valorMinimo !== undefined) ? formatarMoeda(c.valorMinimo) : "-"}</td>
+            <td>
+                <button class="botao-secundario" style="border-color: var(--cor-erro); color: var(--cor-erro);" onclick="excluirCliente('${c.id}')">
+                    Excluir
+                </button>
+            </td>
+        </tr>
+
+        `;
+
+    });
+
+    html += `</tbody></table>`;
+
+    document.getElementById("listaClientes").innerHTML = html;
 
 }
 
